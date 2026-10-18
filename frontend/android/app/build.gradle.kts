@@ -37,17 +37,8 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-
-    packaging {
-        jniLibs {
-            keepDebugSymbols += "**/*.so"
-        }
-    }
 }
 
-tasks.matching { it.name.contains("strip", ignoreCase = true) || it.name.contains("Symbol", ignoreCase = true) }.configureEach {
-    enabled = false
-}
 
 kotlin {
     compilerOptions {
