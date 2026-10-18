@@ -194,3 +194,101 @@ class MSUDCSAlumniAPITests(TestCase):
         self.assertEqual(pdf_res.status_code, status.HTTP_200_OK)
         self.assertEqual(pdf_res['Content-Type'], 'application/pdf')
         self.assertTrue(pdf_res.content.startswith(b'%PDF'))
+
+    def test_skills_tagging_and_filtering(self):
+        """Alumni profile can save skills, and admin directory can filter by skill."""
+        self.client.force_authenticate(user=self.alumni_user)
+        # Update profile with skills
+        res = self.client.patch(reverse('my_profile'), {
+            'skills': 'Python, Flutter, Django, PostgreSQL'
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['skills'], 'Python, Flutter, Django, PostgreSQL')
+        self.assertIn('Python', res.data['skills_list'])
+
+        # Admin filter by skill
+        self.client.force_authenticate(user=self.admin_user)
+        dir_res = self.client.get(reverse('alumni_directory') + '?skill=Flutter')
+        self.assertEqual(dir_res.status_code, status.HTTP_200_OK)
+        results = dir_res.data.get('results', dir_res.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['registration_number'], 'R175420X')
+
+    def test_auto_verification_with_graduation_roster(self):
+        """Registering with a registration number present in GraduationRoster auto-verifies user."""
+        from alumni.models import GraduationRoster
+        # Pre-seed graduation roster entry
+        GraduationRoster.objects.create(
+            registration_number='R220011C',
+            full_name='Kudakwashe Chirwa',
+            graduation_year=2023,
+            programme='BSc Hons Software Engineering'
+        )
+
+        # Register new alumnus with matching registration number
+        reg_payload = {
+            'email': 'kuda.chirwa@alumni.msu.ac.zw',
+            'password': 'Password123!',
+            'first_name': 'Kudakwashe',
+            'last_name': 'Chirwa',
+            'registration_number': 'R220011C',
+            'graduation_year': 2023,
+            'programme': 'BSc Hons Software Engineering'
+        }
+        res = self.client.post(reverse('auth_register'), reg_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(res.data['user']['is_verified'])
+
+    def test_mentorship_directory_request_and_response(self):
+        """Alumni can enable mentorship, appear in mentors directory, receive and respond to requests."""
+        # Setup alumnus as mentor
+        self.alumni_profile.is_available_for_mentorship = True
+        self.alumni_profile.mentorship_areas = 'Career Guidance, Software Architecture'
+        self.alumni_profile.skills = 'Python, Cloud Architecture'
+        self.alumni_profile.save()
+
+        # Another verified alumnus browsing mentors
+        mentee_user = User.objects.create_user(
+            username='chipo',
+            email='chipo@alumni.msu.ac.zw',
+            password='Password123!',
+            first_name='Chipo',
+            last_name='Ndebele',
+            role=User.UserRole.ALUMNI,
+            is_verified=True
+        )
+        mentee_profile = AlumniProfile.objects.create(
+            user=mentee_user,
+            registration_number='R219900M',
+            graduation_year=2023,
+            programme='BSc Hons Information Systems'
+        )
+
+        self.client.force_authenticate(user=mentee_user)
+        # Browse mentors
+        mentors_res = self.client.get(reverse('mentor_directory'))
+        self.assertEqual(mentors_res.status_code, status.HTTP_200_OK)
+        mentors = mentors_res.data.get('results', mentors_res.data)
+        self.assertEqual(len(mentors), 1)
+        self.assertEqual(mentors[0]['full_name'], 'Tinashe Moyo')
+
+        # Send mentorship request
+        req_res = self.client.post(reverse('mentorship_requests'), {
+            'mentor_id': self.alumni_profile.id,
+            'topic': 'CV Review & Mock Interview',
+            'message': 'Hi Tinashe, I would love some feedback on transitioning into software architecture.'
+        }, format='json')
+        self.assertEqual(req_res.status_code, status.HTTP_201_CREATED)
+        req_id = req_res.data['id']
+        self.assertEqual(req_res.data['status'], 'PENDING')
+
+        # Mentor accepts request
+        self.client.force_authenticate(user=self.alumni_user)
+        respond_res = self.client.patch(
+            reverse('mentorship_respond', kwargs={'id': req_id}),
+            {'status': 'ACCEPTED', 'response_message': 'Happy to connect! Let us set up a Google Meet on Friday.'},
+            format='json'
+        )
+        self.assertEqual(respond_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(respond_res.data['status'], 'ACCEPTED')
+

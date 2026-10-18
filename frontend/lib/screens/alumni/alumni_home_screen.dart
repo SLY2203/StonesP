@@ -5,42 +5,37 @@ import '../../providers/auth_provider.dart';
 import '../../providers/communication_provider.dart';
 import '../../providers/career_provider.dart';
 import '../../providers/alumni_provider.dart';
-import '../../widgets/communication_card.dart';
+import '../../widgets/msu_logo.dart';
+import 'feeds_module_view.dart';
+import 'events_module_view.dart';
+import 'job_applications_module.dart';
+import 'feedback_survey_module.dart';
 import 'career_timeline_screen.dart';
 import 'profile_view_edit_screen.dart';
+import 'mentorship_hub_screen.dart';
 import '../auth/login_screen.dart';
 
 class AlumniHomeScreen extends StatefulWidget {
-  const AlumniHomeScreen({super.key});
+  final int initialTabIndex;
+  const AlumniHomeScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<AlumniHomeScreen> createState() => _AlumniHomeScreenState();
 }
 
 class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
-  int _currentIndex = 0;
-
-  final List<String> _categories = [
-    'ALL',
-    'ANNOUNCEMENT',
-    'EVENT',
-    'JOB_VACANCY',
-    'MENTORSHIP',
-  ];
-
-  final Map<String, String> _categoryLabels = {
-    'ALL': 'All Posts',
-    'ANNOUNCEMENT': 'Announcements',
-    'EVENT': 'Events & Galas',
-    'JOB_VACANCY': 'Jobs & Careers',
-    'MENTORSHIP': 'Mentorship',
-  };
+  late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTabIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<CommunicationProvider>(context, listen: false).fetchFeed();
+      final comm = Provider.of<CommunicationProvider>(context, listen: false);
+      comm.fetchFeed();
+      comm.fetchSurveys();
+      comm.fetchSurveyAnalytics();
+      comm.fetchDepartmentFeedbacks();
       Provider.of<CareerProvider>(context, listen: false).fetchMyCareers();
       Provider.of<AlumniProvider>(context, listen: false).fetchMyProfile();
     });
@@ -56,92 +51,6 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
     );
   }
 
-  Widget _buildFeedView() {
-    final commProvider = Provider.of<CommunicationProvider>(context);
-
-    return RefreshIndicator(
-      onRefresh: () => commProvider.fetchFeed(),
-      child: Column(
-        children: [
-          // Category Filter Chips
-          Container(
-            height: 48,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = commProvider.selectedCategory == cat;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(
-                      _categoryLabels[cat] ?? cat,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? Colors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    selected: isSelected,
-                    selectedColor: AppColors.primaryNavy,
-                    backgroundColor: Colors.white,
-                    side: BorderSide(
-                      color: isSelected ? AppColors.primaryNavy : AppColors.border,
-                    ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    onSelected: (selected) {
-                      commProvider.fetchFeed(category: cat);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Feed List
-          Expanded(
-            child: commProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : commProvider.feed.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.inbox_outlined, size: 48, color: AppColors.textMuted),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No updates found in this category',
-                              style: TextStyle(fontSize: 14, color: AppColors.textMuted),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: commProvider.feed.length,
-                        itemBuilder: (context, index) {
-                          final item = commProvider.feed[index];
-                          return CommunicationCard(
-                            communication: item,
-                            onRSVP: (responseType) {
-                              commProvider.submitRSVP(item.id, responseType);
-                            },
-                            onCancelRSVP: () {
-                              commProvider.cancelRSVP(item.id);
-                            },
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
@@ -150,6 +59,18 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8, right: 4),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.accentGold, width: 1.2),
+            ),
+            child: const MsuLogo(size: 28),
+          ),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -196,8 +117,10 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: const [
-          _FeedShell(),
+          _DashboardShell(),
           CareerTimelineScreen(),
+          MentorshipHubScreen(),
+          FeedbackSurveyModule(),
           ProfileViewEditScreen(),
         ],
       ),
@@ -210,14 +133,24 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed_outlined),
-            activeIcon: Icon(Icons.feed),
-            label: 'Feed & Events',
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.timeline_outlined),
             activeIcon: Icon(Icons.timeline),
             label: 'Career Tracker',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.school_outlined),
+            activeIcon: Icon(Icons.school),
+            label: 'Mentorship',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.rate_review_outlined),
+            activeIcon: Icon(Icons.rate_review),
+            label: 'Survey',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -230,12 +163,60 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
   }
 }
 
-class _FeedShell extends StatelessWidget {
-  const _FeedShell();
+class _DashboardShell extends StatelessWidget {
+  const _DashboardShell();
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_AlumniHomeScreenState>();
-    return state?._buildFeedView() ?? const SizedBox();
+    return DefaultTabController(
+      length: 4,
+      child: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            child: const TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: AppColors.primaryNavy,
+              unselectedLabelColor: AppColors.textMuted,
+              labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
+              indicatorColor: AppColors.accentGold,
+              indicatorWeight: 3,
+              indicatorPadding: EdgeInsets.symmetric(horizontal: 8),
+              tabs: [
+                Tab(
+                  icon: Icon(Icons.campaign_outlined, size: 19),
+                  text: 'Feeds & Notices',
+                ),
+                Tab(
+                  icon: Icon(Icons.event_available_outlined, size: 19),
+                  text: 'Events & Reunions',
+                ),
+                Tab(
+                  icon: Icon(Icons.work_outline, size: 19),
+                  text: 'Job Applications',
+                ),
+                Tab(
+                  icon: Icon(Icons.rate_review_outlined, size: 19),
+                  text: 'Feedback & Survey',
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                FeedsModuleView(),
+                EventsModuleView(),
+                JobApplicationsModule(),
+                FeedbackSurveyModule(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

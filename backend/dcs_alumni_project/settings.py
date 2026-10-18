@@ -11,6 +11,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-msu-dcs-alumni-tracki
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 
 # Application definition
 INSTALLED_APPS = [
@@ -38,6 +40,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -66,10 +69,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'dcs_alumni_project.wsgi.application'
 
-# Database Configuration (MySQL with SQLite fallback for instant development)
+# Database Configuration (Render PostgreSQL, manual MySQL/Postgres, or SQLite fallback)
+import dj_database_url
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
 DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite').lower()
 
-if DB_ENGINE == 'mysql':
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+elif DB_ENGINE in ('postgres', 'postgresql', 'psql'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'stones'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
+elif DB_ENGINE == 'mysql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -91,6 +116,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
@@ -150,3 +176,22 @@ SIMPLE_JWT = {
 # CORS Configuration (allows mobile apps and web tools to access API)
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Trusted Origins for Render and local development
+CSRF_TRUSTED_ORIGINS = [
+    h.strip() for h in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS',
+        'https://*.onrender.com,http://localhost:8000,http://127.0.0.1:8000'
+    ).split(',') if h.strip()
+]
+
+# Static files storage using WhiteNoise
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+

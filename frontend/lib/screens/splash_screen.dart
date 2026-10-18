@@ -67,32 +67,27 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // University Seal / Emblem Avatar
+            // University Seal / Emblem
             Container(
-              width: 90,
-              height: 90,
+              width: 100,
+              height: 100,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.accentGold, width: 3),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.accentGold, width: 2.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withOpacity(0.25),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: const Center(
-                child: Text(
-                  'MSU',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primaryNavy,
-                    letterSpacing: 1,
-                  ),
-                ),
+              child: Image.asset(
+                'assets/images/msu_logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.school_rounded, size: 50, color: AppColors.accentGold),
               ),
             ),
             const SizedBox(height: 24),

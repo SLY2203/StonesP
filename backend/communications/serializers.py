@@ -1,14 +1,30 @@
 from rest_framework import serializers
-from .models import Communication, RSVP
+from .models import Communication, RSVP, DepartmentFeedback, SystemFeedbackSurvey
 
 class RSVPSerializer(serializers.ModelSerializer):
     alumnus_name = serializers.CharField(source='alumnus.user.get_full_name', read_only=True)
     alumnus_reg = serializers.CharField(source='alumnus.registration_number', read_only=True)
+    alumnus_email = serializers.EmailField(source='alumnus.user.email', read_only=True)
+    alumnus_programme = serializers.CharField(source='alumnus.programme', read_only=True)
+    alumnus_grad_year = serializers.IntegerField(source='alumnus.graduation_year', read_only=True)
+    communication_title = serializers.CharField(source='communication.title', read_only=True)
+    communication_category = serializers.CharField(source='communication.category', read_only=True)
+    communication_category_display = serializers.CharField(source='communication.get_category_display', read_only=True)
 
     class Meta:
         model = RSVP
-        fields = ['id', 'communication', 'alumnus', 'alumnus_name', 'alumnus_reg', 'response_type', 'notes', 'created_at']
-        read_only_fields = ['id', 'alumnus', 'alumnus_name', 'alumnus_reg', 'created_at']
+        fields = [
+            'id', 'communication', 'alumnus', 'alumnus_name', 'alumnus_reg',
+            'alumnus_email', 'alumnus_programme', 'alumnus_grad_year',
+            'communication_title', 'communication_category', 'communication_category_display',
+            'response_type', 'notes', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'alumnus', 'alumnus_name', 'alumnus_reg',
+            'alumnus_email', 'alumnus_programme', 'alumnus_grad_year',
+            'communication_title', 'communication_category', 'communication_category_display',
+            'created_at'
+        ]
 
 class CommunicationSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
@@ -45,3 +61,35 @@ class CommunicationSerializer(serializers.ModelSerializer):
                     'created_at': user_rsvp.created_at
                 }
         return None
+
+class DepartmentFeedbackSerializer(serializers.ModelSerializer):
+    alumnus_name = serializers.CharField(source='alumnus.user.get_full_name', read_only=True)
+    alumnus_reg = serializers.CharField(source='alumnus.registration_number', read_only=True)
+    alumnus_email = serializers.EmailField(source='alumnus.user.email', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = DepartmentFeedback
+        fields = [
+            'id', 'alumnus', 'alumnus_name', 'alumnus_reg', 'alumnus_email',
+            'subject', 'category', 'category_display', 'message',
+            'is_reviewed', 'created_at'
+        ]
+        read_only_fields = ['id', 'alumnus', 'alumnus_name', 'alumnus_reg', 'alumnus_email', 'category_display', 'created_at']
+
+class SystemFeedbackSurveySerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_role = serializers.CharField(source='user.role', read_only=True)
+    aspect_display = serializers.CharField(source='get_system_aspect_display', read_only=True)
+
+    class Meta:
+        model = SystemFeedbackSurvey
+        fields = [
+            'id', 'user', 'user_name', 'user_email', 'user_role',
+            'overall_rating', 'ease_of_use_rating', 'features_rating', 'performance_rating',
+            'system_aspect', 'aspect_display',
+            'what_works_well', 'improvements_needed', 'would_recommend',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_role', 'aspect_display', 'created_at']

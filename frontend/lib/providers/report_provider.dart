@@ -45,6 +45,14 @@ class ReportProvider with ChangeNotifier {
     return _reportService.getPDFExportUrl(year: _selectedYear, programme: _selectedProgramme);
   }
 
+  Future<List<int>> downloadReport(String type, {int? year, String? programme}) async {
+    return await _reportService.downloadReportBytes(
+      type,
+      year: year ?? _selectedYear,
+      programme: programme ?? _selectedProgramme,
+    );
+  }
+
   void _setLoading(bool val) {
     _isLoading = val;
     notifyListeners();

@@ -6,8 +6,10 @@ class AppConstants {
   // API Base URLs
   // For standard Android Emulator: http://10.0.2.2:8000/api
   // For Windows / Web / iOS simulator: http://127.0.0.1:8000/api
+  // For Production on Render: https://msu-dcs-alumni-backend.onrender.com/api
   static const String defaultApiUrl = 'http://10.0.2.2:8000/api';
   static const String localApiUrl = 'http://127.0.0.1:8000/api';
+  static const String productionApiUrl = 'https://msu-dcs-alumni-backend.onrender.com/api';
 
   // Token storage keys
   static const String keyAccessToken = 'msu_access_token';

@@ -169,6 +169,59 @@ class _AlumniDetailVerificationScreenState extends State<AlumniDetailVerificatio
                       ],
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // Information and Date Shared Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.how_to_reg_rounded, size: 14, color: AppColors.primaryNavy),
+                            const SizedBox(width: 6),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Date Registered', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                Text(
+                                  alumnus.createdAt != null && alumnus.createdAt!.length >= 10
+                                      ? alumnus.createdAt!.substring(0, 10)
+                                      : (alumnus.createdAt ?? 'N/A'),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Container(height: 24, width: 1, color: AppColors.border),
+                        Row(
+                          children: [
+                            const Icon(Icons.update_rounded, size: 14, color: AppColors.accentGold),
+                            const SizedBox(width: 6),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Last Info Updated', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                Text(
+                                  alumnus.updatedAt != null && alumnus.updatedAt!.length >= 10
+                                      ? alumnus.updatedAt!.substring(0, 10)
+                                      : (alumnus.updatedAt ?? 'N/A'),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -196,12 +249,24 @@ class _AlumniDetailVerificationScreenState extends State<AlumniDetailVerificatio
                   _buildDetailRow('Phone Number', alumnus.phoneNumber ?? 'N/A'),
                   const Divider(height: 16),
                   _buildDetailRow('Location', alumnus.address ?? 'N/A'),
+                  if (alumnus.bio != null && alumnus.bio!.isNotEmpty) ...[
+                    const Divider(height: 16),
+                    _buildDetailRow('Bio / About', alumnus.bio!),
+                  ],
+                  if (alumnus.linkedinUrl != null && alumnus.linkedinUrl!.isNotEmpty) ...[
+                    const Divider(height: 16),
+                    _buildDetailRow('LinkedIn', alumnus.linkedinUrl!),
+                  ],
+                  if (alumnus.githubUrl != null && alumnus.githubUrl!.isNotEmpty) ...[
+                    const Divider(height: 16),
+                    _buildDetailRow('GitHub', alumnus.githubUrl!),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Current Employment Card
+            // Current Employment & Career Status
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -212,7 +277,17 @@ class _AlumniDetailVerificationScreenState extends State<AlumniDetailVerificatio
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Current Career Status', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Current Career Record', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                      if (alumnus.currentJob != null && alumnus.currentJob!.updatedAt != null)
+                        Text(
+                          'Shared: ${alumnus.currentJob!.updatedAt!.length >= 10 ? alumnus.currentJob!.updatedAt!.substring(0, 10) : alumnus.currentJob!.updatedAt}',
+                          style: const TextStyle(fontSize: 11, color: AppColors.accentGold, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   if (alumnus.currentJob != null) ...[
                     _buildDetailRow('Job Title', alumnus.currentJob!.jobTitle ?? 'N/A'),
@@ -221,14 +296,189 @@ class _AlumniDetailVerificationScreenState extends State<AlumniDetailVerificatio
                     const Divider(height: 16),
                     _buildDetailRow('Industry', alumnus.currentJob!.industrySector ?? 'N/A'),
                     const Divider(height: 16),
-                    _buildDetailRow('Status', alumnus.currentJob!.employmentStatus ?? 'N/A'),
+                    _buildDetailRow('Employment Status', alumnus.currentJob!.employmentStatus ?? 'N/A'),
+                    const Divider(height: 16),
+                    _buildDetailRow(
+                      'Position Duration',
+                      '${alumnus.currentJob!.startDate ?? 'N/A'} - ${alumnus.currentJob!.isCurrent ? 'Present' : (alumnus.currentJob!.endDate ?? 'N/A')}',
+                    ),
+                    if (alumnus.currentJob!.skillsUsed != null && alumnus.currentJob!.skillsUsed!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _buildDetailRow('Skills Used', alumnus.currentJob!.skillsUsed!),
+                    ],
+                    if (alumnus.currentJob!.description != null && alumnus.currentJob!.description!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _buildDetailRow('Job Description', alumnus.currentJob!.description!),
+                    ],
                   ] else ...[
                     const Text('No current job record specified by alumnus.', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
                   ],
                 ],
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 16),
+
+            // Skills & Mentorship Details Shared
+            if (alumnus.skillsList.isNotEmpty || alumnus.isAvailableForMentorship) ...[
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Competencies & Mentorship', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                    const SizedBox(height: 12),
+                    if (alumnus.skillsList.isNotEmpty) ...[
+                      const Text('Technical Skills Shared:', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: alumnus.skillsList.map((sk) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(sk, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryNavy)),
+                        )).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (alumnus.isAvailableForMentorship) ...[
+                      Row(
+                        children: const [
+                          Icon(Icons.volunteer_activism_rounded, size: 16, color: AppColors.accentGold),
+                          SizedBox(width: 6),
+                          Text('Available for Mentorship', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                        ],
+                      ),
+                      if (alumnus.mentorshipAreas != null && alumnus.mentorshipAreas!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text('Areas: ${alumnus.mentorshipAreas}', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Full Career Progression History Timeline
+            if (alumnus.careerRecords.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Career History Timeline',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                        ),
+                        Text(
+                          '${alumnus.careerRecords.length} records',
+                          style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: alumnus.careerRecords.length,
+                      separatorBuilder: (_, __) => const Divider(height: 20),
+                      itemBuilder: (ctx, idx) {
+                        final rec = alumnus.careerRecords[idx];
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: rec.isCurrent ? AppColors.successBg : AppColors.surfaceElevated,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                rec.isCurrent ? Icons.check_circle_rounded : Icons.work_outline_rounded,
+                                size: 16,
+                                color: rec.isCurrent ? AppColors.success : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          rec.jobTitle,
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (rec.isCurrent)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.successBg,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text('CURRENT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.success)),
+                                        ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '${rec.employer} • ${rec.industrySector}',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primaryNavy),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.date_range_rounded, size: 12, color: AppColors.textMuted),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${rec.startDate} - ${rec.isCurrent ? 'Present' : (rec.endDate ?? 'N/A')}',
+                                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                  if (rec.description != null && rec.description!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      rec.description!,
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            const SizedBox(height: 30),
           ],
         ),
       ),

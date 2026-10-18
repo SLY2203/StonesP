@@ -30,8 +30,13 @@ class RegisterAlumniView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        if user.is_verified:
+            msg = 'Registration successful! Your registration number was verified against the official MSU DCS Graduation Roster, and your account has been automatically activated.'
+        else:
+            msg = 'Registration successful. Your account is pending verification by DCS Department Staff.'
+
         return Response({
-            'message': 'Registration successful. Your account is pending verification by DCS Department Staff.',
+            'message': msg,
             'user': {
                 'id': user.id,
                 'email': user.email,

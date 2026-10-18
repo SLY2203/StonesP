@@ -56,6 +56,12 @@ class CareerRecord(models.Model):
         help_text="e.g. MSc Data Science & Analytics"
     )
     description = models.TextField(blank=True, null=True, help_text="Brief summary of duties and achievements")
+    skills_used = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        help_text="Key technologies and skills utilized in this role (e.g. Django, Flutter, Docker, AWS)"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

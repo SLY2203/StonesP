@@ -104,3 +104,127 @@ class CommunicationRSVPListView(generics.ListAPIView):
     def get_queryset(self):
         comm_id = self.kwargs.get('communication_id')
         return RSVP.objects.filter(communication_id=comm_id).select_related('alumnus__user')
+
+
+class AllFeedbacksListView(generics.ListAPIView):
+    """
+    Admin endpoint to view all alumni feedbacks, applications, and RSVPs across communications and jobs.
+    """
+    serializer_class = RSVPSerializer
+    permission_classes = [IsAdminUserRole]
+
+    def get_queryset(self):
+        qs = RSVP.objects.select_related('alumnus__user', 'communication').all()
+        cat = self.request.query_params.get('category')
+        if cat:
+            qs = qs.filter(communication__category=cat.upper())
+        resp_type = self.request.query_params.get('response_type')
+        if resp_type:
+            qs = qs.filter(response_type=resp_type.upper())
+        only_with_notes = self.request.query_params.get('with_notes')
+        if only_with_notes in ['true', '1']:
+            qs = qs.exclude(notes='')
+        return qs.order_by('-created_at')
+
+
+class DepartmentFeedbackListCreateView(generics.ListCreateAPIView):
+    """
+    List department feedbacks (Admin) or submit new feedback (Verified Alumni).
+    """
+    from .models import DepartmentFeedback
+    from .serializers import DepartmentFeedbackSerializer
+    serializer_class = DepartmentFeedbackSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAdminUserRole()]
+        return [IsVerifiedAlumnus()]
+
+    def get_queryset(self):
+        from .models import DepartmentFeedback
+        return DepartmentFeedback.objects.select_related('alumnus__user').all().order_by('-created_at')
+
+    def perform_create(self, serializer):
+        alumnus = get_object_or_404(AlumniProfile, user=self.request.user)
+        serializer.save(alumnus=alumnus)
+
+
+class DepartmentFeedbackReviewView(APIView):
+    """
+    Admin endpoint to mark a department feedback as reviewed.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def patch(self, request, pk):
+        from .models import DepartmentFeedback
+        fb = get_object_or_404(DepartmentFeedback, pk=pk)
+        is_reviewed = request.data.get('is_reviewed', True)
+        fb.is_reviewed = bool(is_reviewed)
+        fb.save()
+        from .serializers import DepartmentFeedbackSerializer
+        return Response(DepartmentFeedbackSerializer(fb).data)
+
+
+class SystemFeedbackSurveyListCreateView(generics.ListCreateAPIView):
+    """
+    List surveys (Admin or User's own) or submit a new survey.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import SystemFeedbackSurveySerializer
+        return SystemFeedbackSurveySerializer
+
+    def get_queryset(self):
+        from .models import SystemFeedbackSurvey
+        user = self.request.user
+        if getattr(user, 'role', None) == 'ADMIN' or user.is_staff or user.is_superuser:
+            return SystemFeedbackSurvey.objects.select_related('user').all().order_by('-created_at')
+        return SystemFeedbackSurvey.objects.filter(user=user).select_related('user').order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class SystemFeedbackSurveyAnalyticsView(APIView):
+    """
+    Returns analytics and average scores of the system feedback surveys.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .models import SystemFeedbackSurvey
+        from django.db.models import Avg, Count
+        surveys = SystemFeedbackSurvey.objects.all()
+        total_count = surveys.count()
+        if total_count == 0:
+            return Response({
+                'total_surveys': 0,
+                'average_overall_rating': 5.0,
+                'average_ease_of_use': 5.0,
+                'average_features': 5.0,
+                'average_performance': 5.0,
+                'recommend_rate': 100.0,
+                'rating_breakdown': {},
+            })
+
+        averages = surveys.aggregate(
+            avg_overall=Avg('overall_rating'),
+            avg_ease=Avg('ease_of_use_rating'),
+            avg_features=Avg('features_rating'),
+            avg_perf=Avg('performance_rating'),
+        )
+        recommend_count = surveys.filter(would_recommend=True).count()
+        recommend_rate = round((recommend_count / total_count) * 100, 1)
+
+        breakdown = dict(surveys.values_list('overall_rating').annotate(c=Count('id')).order_by('-overall_rating'))
+
+        return Response({
+            'total_surveys': total_count,
+            'average_overall_rating': round(averages['avg_overall'] or 5.0, 1),
+            'average_ease_of_use': round(averages['avg_ease'] or 5.0, 1),
+            'average_features': round(averages['avg_features'] or 5.0, 1),
+            'average_performance': round(averages['avg_perf'] or 5.0, 1),
+            'recommend_rate': recommend_rate,
+            'rating_breakdown': breakdown,
+        })

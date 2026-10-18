@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
@@ -24,8 +24,29 @@ class ApiClient {
   String? _accessToken;
   String? _refreshToken;
 
-  // Custom base URL support (defaults to AppConstants.defaultApiUrl)
-  String _baseUrl = AppConstants.defaultApiUrl;
+  static String get _detectInitialBaseUrl {
+    try {
+      if (kIsWeb) {
+        final host = Uri.base.host;
+        if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {
+          return AppConstants.productionApiUrl;
+        }
+        return AppConstants.localApiUrl;
+      }
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        if (kReleaseMode) {
+          return AppConstants.productionApiUrl;
+        }
+        return AppConstants.defaultApiUrl;
+      }
+      return AppConstants.localApiUrl;
+    } catch (_) {
+      return AppConstants.localApiUrl;
+    }
+  }
+
+  // Auto-detect base URL (10.0.2.2 for Android Emulator, 127.0.0.1 for Windows/iOS/Web)
+  String _baseUrl = _detectInitialBaseUrl;
   String get baseUrl => _baseUrl;
 
   void setBaseUrl(String url) {
@@ -83,11 +104,33 @@ class ApiClient {
           .get(uri, headers: _getHeaders(includeAuth: includeAuth))
           .timeout(const Duration(seconds: 15));
       return _processResponse(response);
-    } on SocketException {
+    } on http.ClientException {
       throw ApiException(message: "Cannot connect to DCS Alumni server at $_baseUrl. Please check connection.");
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException(message: "Network request failed: ${e.toString()}");
+    }
+  }
+
+  Future<List<int>> getBytes(String endpoint, {Map<String, dynamic>? queryParams, bool includeAuth = true}) async {
+    Uri uri = _buildUri(endpoint, queryParams);
+    try {
+      final response = await http
+          .get(uri, headers: _getHeaders(includeAuth: includeAuth))
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.bodyBytes;
+      } else {
+        throw ApiException(
+          message: "Failed to download file: Server returned HTTP ${response.statusCode}",
+          statusCode: response.statusCode,
+        );
+      }
+    } on http.ClientException {
+      throw ApiException(message: "Cannot connect to DCS Alumni server at $_baseUrl to download file.");
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: "Download request failed: ${e.toString()}");
     }
   }
 
@@ -102,7 +145,7 @@ class ApiClient {
           )
           .timeout(const Duration(seconds: 15));
       return _processResponse(response);
-    } on SocketException {
+    } on http.ClientException {
       throw ApiException(message: "Cannot reach backend server. Check that Django API is running.");
     } catch (e) {
       if (e is ApiException) rethrow;

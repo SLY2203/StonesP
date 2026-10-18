@@ -24,6 +24,7 @@ class _AddEditCareerScreenState extends State<AddEditCareerScreen> {
   late TextEditingController _descController;
   late TextEditingController _furtherInstController;
   late TextEditingController _furtherProgController;
+  late TextEditingController _skillsController;
 
   String _employmentStatus = 'EMPLOYED';
   String _industrySector = AppConstants.industrySectors[0];
@@ -42,6 +43,7 @@ class _AddEditCareerScreenState extends State<AddEditCareerScreen> {
     _descController = TextEditingController(text: rec?.description ?? '');
     _furtherInstController = TextEditingController(text: rec?.furtherEducationInstitution ?? '');
     _furtherProgController = TextEditingController(text: rec?.furtherEducationProgramme ?? '');
+    _skillsController = TextEditingController(text: rec?.skillsUsed ?? '');
 
     if (rec != null) {
       _employmentStatus = rec.employmentStatus;
@@ -65,6 +67,7 @@ class _AddEditCareerScreenState extends State<AddEditCareerScreen> {
     _descController.dispose();
     _furtherInstController.dispose();
     _furtherProgController.dispose();
+    _skillsController.dispose();
     super.dispose();
   }
 
@@ -104,6 +107,7 @@ class _AddEditCareerScreenState extends State<AddEditCareerScreen> {
       furtherEducationInstitution: _employmentStatus == 'FURTHER_STUDIES' ? _furtherInstController.text.trim() : null,
       furtherEducationProgramme: _employmentStatus == 'FURTHER_STUDIES' ? _furtherProgController.text.trim() : null,
       description: _descController.text.trim(),
+      skillsUsed: _skillsController.text.trim(),
     );
 
     bool success;
@@ -281,6 +285,32 @@ class _AddEditCareerScreenState extends State<AddEditCareerScreen> {
                         ),
                       ],
                     ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  CustomTextField(
+                    controller: _skillsController,
+                    label: 'Technologies & Skills Used (comma separated)',
+                    hint: 'e.g. Flutter, Django, PostgreSQL, Docker, AWS',
+                    prefixIcon: Icons.psychology_outlined,
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      'Python', 'Flutter', 'Django', 'PostgreSQL', 'Docker', 'AWS', 'React', 'Linux'
+                    ].map((s) => ActionChip(
+                      label: Text(s, style: const TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.surfaceElevated,
+                      onPressed: () {
+                        final current = _skillsController.text.trim();
+                        if (!current.toLowerCase().contains(s.toLowerCase())) {
+                          _skillsController.text = current.isEmpty ? s : '$current, $s';
+                        }
+                      },
+                    )).toList(),
                   ),
                   const SizedBox(height: 14),
 

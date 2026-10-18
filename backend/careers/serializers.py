@@ -12,7 +12,7 @@ class CareerRecordSerializer(serializers.ModelSerializer):
             'employment_status', 'status_display', 'industry_sector',
             'start_date', 'end_date', 'is_current',
             'further_education_institution', 'further_education_programme',
-            'description', 'created_at', 'updated_at'
+            'description', 'skills_used', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'alumnus', 'alumnus_name', 'status_display', 'created_at', 'updated_at']
 

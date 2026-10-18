@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../providers/report_provider.dart';
 import '../../widgets/stat_card.dart';
+import '../../services/file_saver.dart';
 
 class ReportsDashboardScreen extends StatefulWidget {
   const ReportsDashboardScreen({super.key});
@@ -35,6 +36,71 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
     );
   }
 
+  Future<void> _handleDownload(String type, String url) async {
+    final provider = Provider.of<ReportProvider>(context, listen: false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            Text('Generating $type report from backend...'),
+          ],
+        ),
+        backgroundColor: AppColors.primaryNavy,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final bytes = await provider.downloadReport(
+        type,
+        year: _filterYear == 0 ? null : _filterYear,
+        programme: _filterProg,
+      );
+
+      final ext = type.toLowerCase();
+      final mime = type == 'PDF' ? 'application/pdf' : 'text/csv';
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filename = 'msu_dcs_alumni_report_$timestamp.$ext';
+
+      FileSaver.saveFile(
+        bytes: bytes,
+        filename: filename,
+        mimeType: mime,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ $type report exported successfully! ($filename)'),
+            backgroundColor: AppColors.success,
+            action: SnackBarAction(
+              label: 'Direct URL',
+              textColor: Colors.white,
+              onPressed: () => FileSaver.openUrl(url),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Fallback: open direct URL
+        FileSaver.openUrl(url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export downloading via browser link: ${e.toString()}'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+    }
+  }
+
   void _showExportDialog(String type) {
     final provider = Provider.of<ReportProvider>(context, listen: false);
     final url = type == 'PDF' ? provider.getPDFExportUrl() : provider.getCSVExportUrl();
@@ -59,6 +125,11 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
               style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 14),
+            const Text(
+              'Authenticated Download Endpoint:',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -77,17 +148,20 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
           ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.open_in_new_rounded, size: 14),
+            label: const Text('Open URL'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              FileSaver.openUrl(url);
+            },
+          ),
           ElevatedButton.icon(
             icon: const Icon(Icons.download_rounded, size: 16),
             label: Text('Download $type'),
             onPressed: () {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Downloading $type from backend API: $url'),
-                  backgroundColor: AppColors.primaryNavy,
-                ),
-              );
+              _handleDownload(type, url);
             },
           ),
         ],
@@ -133,6 +207,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             value: _filterYear ?? 0,
+                            isExpanded: true,
                             decoration: const InputDecoration(labelText: 'Cohort Year', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                             items: _years.map((y) {
                               return DropdownMenuItem(value: y, child: Text(y == 0 ? 'All Cohorts' : 'Class of $y', style: const TextStyle(fontSize: 12)));
@@ -149,9 +224,10 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: _filterProg ?? '',
+                            isExpanded: true,
                             decoration: const InputDecoration(labelText: 'Programme', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                             items: [
-                              const DropdownMenuItem(value: '', child: Text('All Programmes', style: TextStyle(fontSize: 12))),
+                              const DropdownMenuItem(value: '', child: Text('All Programmes', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                               ...AppConstants.dcsProgrammes.map((p) {
                                 return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis));
                               }),
@@ -203,7 +279,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
 
               if (reportProvider.isLoading && summary == null)
                 const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
-              else if (metrics != null) ...[
+              else if (metrics != null && summary != null) ...[
                 // KPI Metrics Section
                 const Text(
                   'AGGREGATE EMPLOYMENT OUTCOMES',

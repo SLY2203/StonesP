@@ -5,6 +5,7 @@ import '../../constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/msu_logo.dart';
 import 'pending_approval_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -92,6 +93,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const Center(
+                      child: MsuLogo(size: 64, showBorder: true, borderRadius: 16),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Info banner
                     Container(
                       padding: const EdgeInsets.all(14),

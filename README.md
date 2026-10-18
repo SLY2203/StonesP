@@ -10,7 +10,7 @@ A full-stack mobile and API platform built for the **Department of Computer Scie
 - **State Management:** Provider
 - **Backend:** Django 5 & Django REST Framework (DRF)
 - **Authentication:** SimpleJWT (JSON Web Tokens) with Role-Based Access Control (RBAC)
-- **Database:** MySQL (`PyMySQL` connector) with automatic fallback to SQLite for zero-setup local development
+- **Database:** PostgreSQL (`psycopg2-binary`) / MySQL (`PyMySQL`) with automatic fallback to SQLite for zero-setup local development
 - **Document & Report Generation:** ReportLab (for PDF exports) and standard CSV streaming
 - **Push Notifications:** Firebase Cloud Messaging (FCM) broadcast handler
 - **Supported IDEs:** Android Studio (Flutter) & VS Code (Django)
@@ -81,11 +81,11 @@ The system comes pre-populated with realistic department data:
 
 | Role | Email | Password | Status | Details |
 |---|---|---|---|---|
-| **Department Admin** | `admin@dcs.msu.ac.zw` | `Admin@MSU2026` | Verified | Full Staff Privileges & Reporting |
-| **Verified Alumnus** | `tinashe.moyo@alumni.msu.ac.zw` | `Alumni@MSU2026` | Verified | Senior SWE at EcoCash, 2021 Grad |
-| **Verified Alumnus** | `nyasha.chidambazina@alumni.msu.ac.zw` | `Alumni@MSU2026` | Verified | Cloud Architect at Liquid Telecom |
-| **Verified Alumnus** | `simbarashe.dube@alumni.msu.ac.zw` | `Alumni@MSU2026` | Verified | Postgrad AI Researcher at MSU |
-| **Pending Alumnus** | `blessing.munemo@alumni.msu.ac.zw` | `Alumni@MSU2026` | **Pending** | *Use to test Admin Verification flow* |
+| **Department Admin** | `admin@dcs.msu.ac.zw` | `stones123` | Verified | Full Staff Privileges & Reporting |
+| **Verified Alumnus** | `tinashe.moyo@alumni.msu.ac.zw` | `stones123` | Verified | Senior SWE at EcoCash, 2021 Grad |
+| **Verified Alumnus** | `nyasha.chidambazina@alumni.msu.ac.zw` | `stones123` | Verified | Cloud Architect at Liquid Telecom |
+| **Verified Alumnus** | `simbarashe.dube@alumni.msu.ac.zw` | `stones123` | Verified | Postgrad AI Researcher at MSU |
+| **Pending Alumnus** | `blessing.munemo@alumni.msu.ac.zw` | `stones123` | **Pending** | *Use to test Admin Verification flow* |
 
 ---
 
@@ -103,12 +103,14 @@ cd backend
 # Activate virtual environment (Windows PowerShell)
 .\venv\Scripts\Activate.ps1
 
-# (Optional) To connect to MySQL:
+# Database Configuration:
+# To connect to PostgreSQL (configured by default):
 # Edit backend/.env and set:
-# DB_ENGINE=mysql
-# DB_NAME=msu_dcs_alumni_db
-# DB_USER=root
-# DB_PASSWORD=your_mysql_password
+# DB_ENGINE=postgres
+# DB_NAME=stones
+# DB_USER=postgres
+# DB_PASSWORD=your_password
+# DB_PORT=5432
 
 # Apply database migrations
 python manage.py migrate
@@ -158,27 +160,39 @@ flutter run
 - `GET /api/auth/me/` – Retrieve current authenticated user details.
 - `POST /api/auth/alumni/<user_id>/verify/` – **[Admin Only]** Verify/approve or revoke an alumnus account.
 
-### 2. Alumni Profile & Directory (`/api/alumni/`)
-- `GET /api/alumni/profile/me/` – Retrieve current alumnus profile.
-- `PATCH /api/alumni/profile/me/` – Update personal, contact, and social information.
-- `GET /api/alumni/directory/` – **[Admin Only]** Search and filter all registered alumni (`?q=`, `?graduation_year=`, `?programme=`, `?is_verified=`).
+### 2. Alumni Profile, Skills & Directory (`/api/alumni/`)
+- `GET /api/alumni/profile/me/` – Retrieve current alumnus profile with technical skills & mentorship status.
+- `PATCH /api/alumni/profile/me/` – Update personal info, technical skills (`skills`), and mentorship availability (`is_available_for_mentorship`, `mentorship_areas`).
+- `GET /api/alumni/directory/` – **[Admin Only]** Search and filter alumni (`?q=`, `?skill=`, `?graduation_year=`, `?programme=`, `?is_verified=`).
 - `GET /api/alumni/directory/<id>/` – **[Admin Only]** Full details of a specific alumnus.
 
-### 3. Career Milestones & Tracking (`/api/careers/`)
+### 3. Mentorship & Peer Networking (`/api/alumni/`)
+- `GET /api/alumni/mentors/` – Discover verified alumni offering mentorship (`?q=`, `?skill=`, `?topic=`).
+- `GET /api/alumni/mentorship/requests/` – List user's sent and received mentorship requests.
+- `POST /api/alumni/mentorship/requests/` – Send a 1-on-1 mentorship request to an alumnus mentor.
+- `PATCH /api/alumni/mentorship/requests/<id>/respond/` – **[Mentor Only]** Accept/Decline mentorship request with meeting notes.
+
+### 4. Graduation Roster & Smart Verification (`/api/alumni/`)
+- `GET /api/alumni/roster/` – **[Admin Only]** List official DCS graduation roster records.
+- `POST /api/alumni/roster/` – **[Admin Only]** Add individual roster entry.
+- `POST /api/alumni/roster/batch/` – **[Admin Only]** Bulk upload graduation roster via CSV or JSON.
+- `POST /api/alumni/roster/auto-verify-pending/` – **[Admin Only]** 1-tap match & verify all pending accounts against official graduation records.
+
+### 5. Career Milestones & Tracking (`/api/careers/`)
 - `GET /api/careers/me/` – List authenticated alumnus career progression timeline.
-- `POST /api/careers/me/` – Add new career position (auto-manages current role toggle).
+- `POST /api/careers/me/` – Add new career position with `skills_used` tagging.
 - `PUT /api/careers/me/<id>/` – Update career record.
 - `DELETE /api/careers/me/<id>/` – Remove career milestone.
-- `GET /api/careers/stats/` – Summary statistics of employment status and top hiring industries.
+- `GET /api/careers/stats/` – Employment distribution, top hiring industries, and **Top 10 demanded technical skills**.
 
-### 4. Communications & Engagement (`/api/communications/`)
+### 6. Communications & Engagement (`/api/communications/`)
 - `GET /api/communications/` – Feed of announcements, events, jobs, mentorship (`?category=`, `?target_year=`).
 - `POST /api/communications/` – **[Admin Only]** Publish a new broadcast and dispatch FCM push notifications.
 - `POST /api/communications/<id>/rsvp/` – Submit or change RSVP (`ATTENDING`, `INTERESTED`, `APPLIED`).
 - `DELETE /api/communications/<id>/rsvp/` – Cancel RSVP.
 - `GET /api/communications/<id>/rsvps/` – **[Admin Only]** View list of alumni who responded.
 
-### 5. Reporting & Exports (`/api/reports/`)
+### 7. Reporting & Exports (`/api/reports/`)
 - `GET /api/reports/summary/` – **[Admin Only]** Summary metrics for dashboard charts.
 - `GET /api/reports/export/csv/` – **[Admin Only]** Download cohort data as CSV file.
 - `GET /api/reports/export/pdf/` – **[Admin Only]** Download official formatted PDF departmental report.

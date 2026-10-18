@@ -23,6 +23,9 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
     final bioController = TextEditingController(text: profile.bio ?? '');
     final linkedinController = TextEditingController(text: profile.linkedinUrl ?? '');
     final githubController = TextEditingController(text: profile.githubUrl ?? '');
+    final skillsController = TextEditingController(text: profile.skills ?? '');
+    final mentorshipAreasController = TextEditingController(text: profile.mentorshipAreas ?? '');
+    bool isAvailableForMentorship = profile.isAvailableForMentorship;
 
     showModalBottomSheet(
       context: context,
@@ -30,87 +33,162 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          top: 20,
-          left: 20,
-          right: 20,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Edit Profile Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Edit Profile Information',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: phoneController,
+                  label: 'Phone Number',
+                  hint: '+263 77 123 4567',
+                  prefixIcon: Icons.phone_outlined,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: addressController,
+                  label: 'Residential / City Location',
+                  hint: 'e.g. Harare, Zimbabwe',
+                  prefixIcon: Icons.location_on_outlined,
+                ),
+                const SizedBox(height: 12),
+
+                // Technical Skills Field
+                CustomTextField(
+                  controller: skillsController,
+                  label: 'Technical Skills & Technologies (comma separated)',
+                  hint: 'e.g. Python, Flutter, Django, PostgreSQL, AWS, Docker',
+                  prefixIcon: Icons.psychology_outlined,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    'Python', 'Flutter', 'Django', 'PostgreSQL', 'AWS', 'Docker', 'React', 'Machine Learning'
+                  ].map((s) => ActionChip(
+                    label: Text(s, style: const TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: AppColors.surfaceElevated,
+                    onPressed: () {
+                      final current = skillsController.text.trim();
+                      if (!current.toLowerCase().contains(s.toLowerCase())) {
+                        skillsController.text = current.isEmpty ? s : '$current, $s';
+                      }
+                    },
+                  )).toList(),
+                ),
+                const SizedBox(height: 14),
+
+                // Mentorship Switch & Areas
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Available for Mentorship',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                        ),
+                        subtitle: const Text(
+                          'Help junior alumni & current DCS finalists with guidance',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                        activeColor: AppColors.primaryNavy,
+                        value: isAvailableForMentorship,
+                        onChanged: (val) {
+                          setModalState(() {
+                            isAvailableForMentorship = val;
+                          });
+                        },
+                      ),
+                      if (isAvailableForMentorship) ...[
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: mentorshipAreasController,
+                          label: 'Mentorship Focus Areas',
+                          hint: 'e.g. CV Review, Mock Technical Interviews, FinTech Advice',
+                          prefixIcon: Icons.school_outlined,
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: phoneController,
-                label: 'Phone Number',
-                hint: '+263 77 123 4567',
-                prefixIcon: Icons.phone_outlined,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                controller: addressController,
-                label: 'Residential / City Location',
-                hint: 'e.g. Harare, Zimbabwe',
-                prefixIcon: Icons.location_on_outlined,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                controller: linkedinController,
-                label: 'LinkedIn Profile URL',
-                hint: 'https://linkedin.com/in/...',
-                prefixIcon: Icons.link_rounded,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                controller: githubController,
-                label: 'GitHub / Portfolio URL',
-                hint: 'https://github.com/...',
-                prefixIcon: Icons.code_rounded,
-              ),
-              const SizedBox(height: 12),
-              CustomTextField(
-                controller: bioController,
-                label: 'Professional Bio',
-                hint: 'Tell your alumni network about yourself...',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              CustomButton(
-                text: 'Save Changes',
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  final success = await alumniProvider.updateMyProfile({
-                    'phone_number': phoneController.text.trim(),
-                    'address': addressController.text.trim(),
-                    'bio': bioController.text.trim(),
-                    'linkedin_url': linkedinController.text.trim(),
-                    'github_url': githubController.text.trim(),
-                  });
-                  if (mounted && success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: AppColors.success),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
+                ),
+                const SizedBox(height: 14),
+
+                CustomTextField(
+                  controller: linkedinController,
+                  label: 'LinkedIn Profile URL',
+                  hint: 'https://linkedin.com/in/...',
+                  prefixIcon: Icons.link_rounded,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: githubController,
+                  label: 'GitHub / Portfolio URL',
+                  hint: 'https://github.com/...',
+                  prefixIcon: Icons.code_rounded,
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: bioController,
+                  label: 'Professional Bio',
+                  hint: 'Tell your alumni network about yourself...',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 20),
+                CustomButton(
+                  text: 'Save Changes',
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final success = await alumniProvider.updateMyProfile({
+                      'phone_number': phoneController.text.trim(),
+                      'address': addressController.text.trim(),
+                      'bio': bioController.text.trim(),
+                      'linkedin_url': linkedinController.text.trim(),
+                      'github_url': githubController.text.trim(),
+                      'skills': skillsController.text.trim(),
+                      'is_available_for_mentorship': isAvailableForMentorship,
+                      'mentorship_areas': mentorshipAreasController.text.trim(),
+                    });
+                    if (mounted && success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: AppColors.success),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -212,7 +290,116 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Academic & Career Summary Card
+            // Technical Skills & Competencies Card (Suggestion 1)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Technical Skills & Stack',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                      ),
+                      Icon(Icons.code_rounded, size: 20, color: AppColors.primaryNavy.withOpacity(0.7)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (profile.skillsList.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: profile.skillsList.map((skill) => Chip(
+                        label: Text(
+                          skill,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryNavy),
+                        ),
+                        backgroundColor: AppColors.surfaceElevated,
+                        side: const BorderSide(color: AppColors.border),
+                        avatar: const CircleAvatar(
+                          radius: 4,
+                          backgroundColor: AppColors.accentGold,
+                        ),
+                      )).toList(),
+                    )
+                  else
+                    const Text(
+                      'No skills listed yet. Tap "Edit Profile" to add your programming languages and technical competencies.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Mentorship Status Card (Suggestion 3)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Mentorship Program',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: profile.isAvailableForMentorship ? AppColors.success.withOpacity(0.12) : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          profile.isAvailableForMentorship ? 'Active Mentor' : 'Not Enrolled',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: profile.isAvailableForMentorship ? AppColors.success : Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (profile.isAvailableForMentorship) ...[
+                    const Text(
+                      'You are visible to students and fellow alumni as a volunteer mentor.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                    ),
+                    if (profile.mentorshipAreas != null && profile.mentorshipAreas!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Focus: ${profile.mentorshipAreas!}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryNavy),
+                      ),
+                    ],
+                  ] else
+                    const Text(
+                      'Turn on "Available for Mentorship" in your profile settings to guide junior alumni and students with career and technical advice.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Academic Information Card
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(

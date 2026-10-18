@@ -9,6 +9,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     Custom JWT serializer returning role, verification status, and profile info
     directly in the login response to simplify frontend route guards.
     """
+    role = serializers.CharField(required=False, write_only=True)
+
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
@@ -19,8 +21,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
+        expected_role = attrs.get('role')
         data = super().validate(attrs)
         user = self.user
+
+        if expected_role and user.role != expected_role:
+            role_label = "Administrator" if user.role == User.UserRole.ADMIN else "Alumnus"
+            expected_label = "Administrator" if expected_role == User.UserRole.ADMIN else "Alumnus"
+            raise serializers.ValidationError({
+                'detail': f"Access Denied: This account is registered as an {role_label}, but you selected the {expected_label} portal. Please select the correct role."
+            })
+
         data['user'] = {
             'id': user.id,
             'email': user.email,
@@ -86,6 +97,12 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             username = f"{base_username}{counter}"
             counter += 1
 
+        from alumni.models import GraduationRoster
+
+        # Suggestion 2: Auto-verify if the registration number exists in the official Graduation Roster
+        roster_entry = GraduationRoster.objects.filter(registration_number__iexact=reg_num).first()
+        is_auto_verified = bool(roster_entry)
+
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -93,7 +110,7 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
             role=User.UserRole.ALUMNI,
-            is_verified=False  # Must be approved by department admin
+            is_verified=is_auto_verified
         )
 
         AlumniProfile.objects.create(
@@ -104,6 +121,7 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             phone_number=phone
         )
 
+        user.is_auto_verified = is_auto_verified
         return user
 
 class VerifyAlumnusSerializer(serializers.Serializer):

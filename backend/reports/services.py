@@ -64,6 +64,52 @@ class AlumniReportService:
         total_broadcasts = Communication.objects.count()
         total_rsvps = RSVP.objects.count()
 
+        # Recent alumni who joined & shared profiles
+        recent_profiles = profiles_qs.order_by('-created_at')[:8]
+        recent_registrations = []
+        for p in recent_profiles:
+            cur = p.career_records.filter(is_current=True).first()
+            recent_registrations.append({
+                'id': p.id,
+                'user_id': p.user.id,
+                'full_name': p.user.get_full_name(),
+                'email': p.user.email,
+                'registration_number': p.registration_number,
+                'graduation_year': p.graduation_year,
+                'programme': p.programme,
+                'phone_number': p.phone_number,
+                'address': p.address,
+                'is_verified': p.user.is_verified,
+                'created_at': p.created_at.strftime('%Y-%m-%d %H:%M:%S') if p.created_at else None,
+                'updated_at': p.updated_at.strftime('%Y-%m-%d %H:%M:%S') if p.updated_at else None,
+                'current_job_title': cur.job_title if cur else None,
+                'current_employer': cur.employer if cur else None,
+                'current_status': cur.employment_status if cur else None,
+            })
+
+        # Recent career progression records shared by alumni
+        recent_careers_qs = CareerRecord.objects.select_related('alumnus__user').order_by('-created_at')[:8]
+        recent_career_updates = []
+        for c in recent_careers_qs:
+            recent_career_updates.append({
+                'id': c.id,
+                'alumnus_id': c.alumnus.id,
+                'alumnus_name': c.alumnus.user.get_full_name(),
+                'registration_number': c.alumnus.registration_number,
+                'job_title': c.job_title,
+                'employer': c.employer,
+                'employment_status': c.employment_status,
+                'status_display': c.get_employment_status_display(),
+                'industry_sector': c.industry_sector,
+                'start_date': c.start_date.isoformat() if c.start_date else None,
+                'end_date': c.end_date.isoformat() if c.end_date else None,
+                'is_current': c.is_current,
+                'description': c.description,
+                'skills_used': c.skills_used,
+                'created_at': c.created_at.strftime('%Y-%m-%d %H:%M:%S') if c.created_at else None,
+                'updated_at': c.updated_at.strftime('%Y-%m-%d %H:%M:%S') if c.updated_at else None,
+            })
+
         return {
             'filters': {'graduation_year': year, 'programme': programme},
             'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -79,11 +125,29 @@ class AlumniReportService:
                 'overall_employment_rate': employed_rate,
                 'total_broadcasts': total_broadcasts,
                 'total_rsvps': total_rsvps,
+                'total_feedbacks': RSVP.objects.exclude(notes='').count(),
             },
             'programmes': programme_counts,
             'graduation_years': year_counts,
             'top_industries': top_industries,
             'top_employers': top_employers,
+            'recent_registrations': recent_registrations,
+            'recent_career_updates': recent_career_updates,
+            'recent_feedbacks': [
+                {
+                    'id': r.id,
+                    'alumnus_id': r.alumnus.id,
+                    'alumnus_name': r.alumnus.user.get_full_name(),
+                    'alumnus_reg': r.alumnus.registration_number,
+                    'communication_id': r.communication.id,
+                    'communication_title': r.communication.title,
+                    'communication_category': r.communication.category,
+                    'response_type': r.response_type,
+                    'notes': r.notes,
+                    'created_at': r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else None,
+                }
+                for r in RSVP.objects.exclude(notes='').select_related('alumnus__user', 'communication').order_by('-created_at')[:8]
+            ],
         }
 
     @staticmethod

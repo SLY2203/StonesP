@@ -1,0 +1,31 @@
+services:
+  # Django REST Framework Backend API
+  - type: web
+    name: msu-dcs-alumni-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: "bash build.sh"
+    startCommand: "gunicorn dcs_alumni_project.wsgi:application"
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: msu-dcs-alumni-db
+          property: connectionString
+
+databases:
+  # Managed PostgreSQL Database on Render
+  - name: msu-dcs-alumni-db
+    databaseName: msu_dcs_alumni
+    user: msu_admin
+    plan: free

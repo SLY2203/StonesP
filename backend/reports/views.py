@@ -5,7 +5,27 @@ from rest_framework import status
 from datetime import datetime
 
 from accounts.permissions import IsAdminUserRole
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 from .services import AlumniReportService
+
+class QueryParamOrHeaderJWTAuthentication(JWTAuthentication):
+    """
+    Allows JWT authentication via either standard Authorization header
+    or '?token=' query parameter (essential for browser file downloads).
+    """
+    def authenticate(self, request):
+        header = self.get_header(request)
+        if header is not None:
+            return super().authenticate(request)
+        token = request.query_params.get('token')
+        if token:
+            try:
+                validated_token = self.get_validated_token(token)
+                return self.get_user(validated_token), validated_token
+            except Exception:
+                raise AuthenticationFailed("Invalid or expired download token.")
+        return None
 
 class ReportSummaryView(APIView):
     """
@@ -26,6 +46,7 @@ class ReportExportCSVView(APIView):
     """
     Downloads alumni cohort data as a formatted CSV file.
     """
+    authentication_classes = [QueryParamOrHeaderJWTAuthentication]
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):
@@ -45,6 +66,7 @@ class ReportExportPDFView(APIView):
     """
     Generates and downloads a formatted PDF departmental report.
     """
+    authentication_classes = [QueryParamOrHeaderJWTAuthentication]
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):

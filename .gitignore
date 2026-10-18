@@ -18,3 +18,8 @@ frontend/.flutter-plugins-dependencies
 .idea/
 .vscode/
 *.iml
+
+# Local JDK & virtualenvs
+jdk17/
+jdk17.zip
+.venv/

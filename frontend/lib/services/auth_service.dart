@@ -8,10 +8,18 @@ class AuthService {
   final ApiClient _client = ApiClient();
   final _storage = const FlutterSecureStorage();
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, {String? role}) async {
+    final body = <String, dynamic>{
+      'email': email.trim().toLowerCase(),
+      'password': password,
+    };
+    if (role != null && role.isNotEmpty) {
+      body['role'] = role;
+    }
+
     final response = await _client.post(
       'auth/login/',
-      body: {'email': email.trim().toLowerCase(), 'password': password},
+      body: body,
       includeAuth: false,
     );
 

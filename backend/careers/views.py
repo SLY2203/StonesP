@@ -69,6 +69,25 @@ class CareerStatsView(APIView):
             count=Count('id')
         ).order_by('-count')[:5]
 
+        # Top 10 Technical Skills across profiles and career milestones
+        skills_counter = {}
+        for p in AlumniProfile.objects.exclude(skills=''):
+            for sk in p.skills_list:
+                s_clean = sk.title()
+                skills_counter[s_clean] = skills_counter.get(s_clean, 0) + 1
+
+        for c in CareerRecord.objects.exclude(skills_used=''):
+            if c.skills_used:
+                for sk in [s.strip() for s in c.skills_used.split(',') if s.strip()]:
+                    s_clean = sk.title()
+                    skills_counter[s_clean] = skills_counter.get(s_clean, 0) + 1
+
+        top_skills = sorted(
+            [{'skill': k, 'count': v} for k, v in skills_counter.items()],
+            key=lambda x: x['count'],
+            reverse=True
+        )[:10]
+
         return Response({
             'total_alumni': total_profiles,
             'tracked_alumni': tracked_count,
@@ -81,4 +100,5 @@ class CareerStatsView(APIView):
             'overall_employed_rate': round(((employed + self_employed) / denom) * 100, 1),
             'top_industries': list(top_industries),
             'top_employers': list(top_employers),
+            'top_skills': top_skills,
         }, status=status.HTTP_200_OK)

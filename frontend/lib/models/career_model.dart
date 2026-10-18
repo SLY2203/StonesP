@@ -13,6 +13,8 @@ class CareerRecordModel {
   final String? furtherEducationInstitution;
   final String? furtherEducationProgramme;
   final String? description;
+  final String? skillsUsed;
+  final List<String> skillsList;
 
   CareerRecordModel({
     required this.id,
@@ -29,9 +31,16 @@ class CareerRecordModel {
     this.furtherEducationInstitution,
     this.furtherEducationProgramme,
     this.description,
+    this.skillsUsed,
+    this.skillsList = const [],
   });
 
   factory CareerRecordModel.fromJson(Map<String, dynamic> json) {
+    final rawSkills = json['skills_used']?.toString() ?? '';
+    final parsedSkills = rawSkills.isNotEmpty
+        ? rawSkills.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+        : <String>[];
+
     return CareerRecordModel(
       id: json['id'] ?? 0,
       alumnusId: json['alumnus'],
@@ -47,6 +56,8 @@ class CareerRecordModel {
       furtherEducationInstitution: json['further_education_institution'],
       furtherEducationProgramme: json['further_education_programme'],
       description: json['description'],
+      skillsUsed: json['skills_used'],
+      skillsList: parsedSkills,
     );
   }
 
@@ -62,6 +73,7 @@ class CareerRecordModel {
       'further_education_institution': furtherEducationInstitution,
       'further_education_programme': furtherEducationProgramme,
       'description': description,
+      'skills_used': skillsUsed,
     };
   }
 }

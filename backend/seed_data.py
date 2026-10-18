@@ -20,7 +20,7 @@ django.setup()
 
 from django.utils import timezone
 from accounts.models import User
-from alumni.models import AlumniProfile
+from alumni.models import AlumniProfile, GraduationRoster, MentorshipRequest
 from careers.models import CareerRecord
 from communications.models import Communication, RSVP
 
@@ -41,9 +41,9 @@ def run_seed():
             'is_verified': True,
         }
     )
-    admin_user.set_password("Admin@MSU2026")
+    admin_user.set_password("stones123")
     admin_user.save()
-    print(f" [OK] Admin user created: {admin_user.email} (Password: Admin@MSU2026)")
+    print(f" [OK] Admin user created: {admin_user.email} (Password: stones123)")
 
     # 2. Define Sample Alumni Data
     alumni_data = [
@@ -58,6 +58,9 @@ def run_seed():
             'bio': 'Passionate software architect focused on distributed mobile financial solutions in Southern Africa.',
             'linkedin': 'https://linkedin.com/in/tinashe-moyo-dcs',
             'is_verified': True,
+            'skills': 'Python, Django, Flutter, PostgreSQL, Microservices, Docker, Redis',
+            'is_available_for_mentorship': True,
+            'mentorship_areas': 'FinTech Architecture, Backend APIs, Career Transition',
             'careers': [
                 {
                     'job_title': 'Senior Software Engineer',
@@ -92,6 +95,9 @@ def run_seed():
             'bio': 'Cloud solutions engineer specializing in AWS and multi-tenant enterprise infrastructure.',
             'linkedin': 'https://linkedin.com/in/nyasha-chidambazina',
             'is_verified': True,
+            'skills': 'AWS, Terraform, Kubernetes, Linux, Python, CI/CD, Cloud Architecture',
+            'is_available_for_mentorship': True,
+            'mentorship_areas': 'Cloud Certifications, DevOps & SRE, Infrastructure',
             'careers': [
                 {
                     'job_title': 'Cloud Solutions Architect',
@@ -315,7 +321,7 @@ def run_seed():
                 'is_verified': item['is_verified'],
             }
         )
-        user.set_password("Alumni@MSU2026")
+        user.set_password("stones123")
         user.is_verified = item['is_verified']
         user.save()
 
@@ -328,13 +334,22 @@ def run_seed():
                 'phone_number': item['phone'],
                 'bio': item['bio'],
                 'linkedin_url': item['linkedin'],
+                'skills': item.get('skills', 'Python, SQL, Git'),
+                'is_available_for_mentorship': item.get('is_available_for_mentorship', False),
+                'mentorship_areas': item.get('mentorship_areas', ''),
             }
         )
+        if not profile.skills and item.get('skills'):
+            profile.skills = item['skills']
+        if item.get('is_available_for_mentorship'):
+            profile.is_available_for_mentorship = item['is_available_for_mentorship']
+            profile.mentorship_areas = item.get('mentorship_areas', '')
+        profile.save()
         alumni_profiles.append(profile)
 
         # Seed Career records
         for c in item['careers']:
-            CareerRecord.objects.get_or_create(
+            rec, _ = CareerRecord.objects.get_or_create(
                 alumnus=profile,
                 job_title=c['job_title'],
                 employer=c['employer'],
@@ -347,6 +362,7 @@ def run_seed():
                     'further_education_institution': c.get('further_institution'),
                     'further_education_programme': c.get('further_programme'),
                     'description': c['description'],
+                    'skills_used': c.get('skills_used', profile.skills),
                 }
             )
 
@@ -469,16 +485,47 @@ def run_seed():
         )
 
     print(f" [OK] Seeded {len(sample_rsvps)} Engagement RSVPs.")
+
+    # 5. Seed Graduation Roster (Official MSU DCS records for automated verification)
+    roster_samples = [
+        ('R208899B', 'Blessing Munemo', 2024, 'BSc Hons Computer Science', 'Upper Second (2.1)'),
+        ('R210045K', 'Anesu Mavhunga', 2024, 'BSc Hons Software Engineering', 'First Class (1)'),
+        ('R215589T', 'Kudzanai Zhou', 2024, 'BSc Hons Cybersecurity & Digital Forensics', 'Upper Second (2.1)'),
+        ('R220011C', 'Kudakwashe Chirwa', 2023, 'BSc Hons Software Engineering', 'Upper Second (2.1)'),
+        ('R175420X', 'Tinashe Moyo', 2021, 'BSc Hons Computer Science', 'First Class (1)'),
+        ('R184321A', 'Nyasha Chidambazina', 2022, 'BSc Hons Information Technology', 'First Class (1)'),
+        ('R162981M', 'Tafadzwa Ndlovu', 2020, 'BSc Hons Software Engineering', 'First Class (1)'),
+    ]
+    for reg, name, yr, prog, deg in roster_samples:
+        GraduationRoster.objects.update_or_create(
+            registration_number=reg,
+            defaults={'full_name': name, 'graduation_year': yr, 'programme': prog, 'degree_class': deg}
+        )
+    print(f" [OK] Seeded {len(roster_samples)} official Graduation Roster records.")
+
+    # 6. Seed Sample Mentorship Request
+    if len(alumni_profiles) >= 2:
+        MentorshipRequest.objects.get_or_create(
+            mentor=alumni_profiles[0],  # Tinashe Moyo
+            mentee=alumni_profiles[1],  # Nyasha Chidambazina
+            defaults={
+                'topic': 'FinTech Microservices & Distributed Architecture',
+                'message': 'Hi Tinashe, looking for architectural guidance on handling high-throughput mobile money transactions.',
+                'status': MentorshipRequest.Status.ACCEPTED,
+                'response_message': 'Hey Nyasha, glad to help! Let us jump on a call next Tuesday at 5 PM.'
+            }
+        )
+        print(" [OK] Seeded sample Mentorship request & connection.")
     print("\n--- SEED COMPLETE ---")
     print("Default Admin Credentials:")
     print("  Email:    admin@dcs.msu.ac.zw")
-    print("  Password: Admin@MSU2026")
+    print("  Password: stones123")
     print("Default Alumni Credentials (Verified):")
     print("  Email:    tinashe.moyo@alumni.msu.ac.zw")
-    print("  Password: Alumni@MSU2026")
+    print("  Password: stones123")
     print("Unverified Sample Alumnus (for admin verification test):")
     print("  Email:    blessing.munemo@alumni.msu.ac.zw")
-    print("  Password: Alumni@MSU2026")
+    print("  Password: stones123")
 
 if __name__ == '__main__':
     run_seed()

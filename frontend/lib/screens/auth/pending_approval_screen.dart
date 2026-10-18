@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/msu_logo.dart';
 import '../alumni/alumni_home_screen.dart';
 import 'login_screen.dart';
 
@@ -79,6 +80,11 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const Center(
+                      child: MsuLogo(size: 54, showBorder: true, borderRadius: 14),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Pending Icon Circle
                     Container(
                       width: 80,

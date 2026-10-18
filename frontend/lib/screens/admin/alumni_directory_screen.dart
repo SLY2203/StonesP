@@ -15,8 +15,10 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
   final _searchController = TextEditingController();
   String _filterStatus = 'ALL'; // 'ALL', 'PENDING', 'VERIFIED'
   int? _selectedYear;
+  String? _selectedSkill;
 
   final List<int> _years = [0, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
+  final List<String> _popularSkills = ['All Skills', 'Python', 'Flutter', 'Django', 'AWS', 'PostgreSQL', 'Docker', 'React'];
 
   @override
   void dispose() {
@@ -30,10 +32,84 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
     if (_filterStatus == 'PENDING') isVer = false;
     if (_filterStatus == 'VERIFIED') isVer = true;
 
+    final skill = (_selectedSkill == null || _selectedSkill == 'All Skills') ? null : _selectedSkill;
+
     provider.fetchDirectory(
       q: _searchController.text.trim(),
+      skill: skill,
       gradYear: _selectedYear == 0 ? null : _selectedYear,
       isVerified: isVer,
+    );
+  }
+
+  void _showRosterAutoVerifyDialog() {
+    final provider = Provider.of<AlumniProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.verified_user_rounded, color: AppColors.primaryNavy),
+            SizedBox(width: 8),
+            Text('Graduation Roster Verify', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Match all currently pending alumni against the official DCS Graduation Roster records.',
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            ),
+            SizedBox(height: 12),
+            Text(
+              '• Alumni with authentic graduation registration numbers (e.g. R208899B) will be verified automatically.\n• Any unrecognized registrations remain pending for manual review.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryNavy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.bolt_rounded, size: 18),
+            label: const Text('Run Auto-Verify'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                final result = await provider.autoVerifyPendingAlumni();
+                if (mounted) {
+                  final verifiedCount = result['verified_count'] ?? 0;
+                  final verifiedList = (result['verified_alumni'] as List?)?.join(', ') ?? '';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(verifiedCount > 0
+                          ? 'Auto-verified $verifiedCount alumni: $verifiedList'
+                          : 'No pending accounts matched the official graduation roster.'),
+                      backgroundColor: verifiedCount > 0 ? AppColors.success : AppColors.primaryNavy,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Verification check failed: $e'), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -51,24 +127,53 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
             color: Colors.white,
             child: Column(
               children: [
-                // Search Input
-                TextField(
-                  controller: _searchController,
-                  onSubmitted: (_) => _applyFilter(),
-                  decoration: InputDecoration(
-                    hintText: 'Search alumni by name, reg #, or employer...',
-                    prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              _applyFilter();
-                            },
-                          )
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
+                // Search Input & Auto-Verify Button
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onSubmitted: (_) => _applyFilter(),
+                        decoration: InputDecoration(
+                          hintText: 'Search alumni by name, reg #, employer, or skill...',
+                          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _applyFilter();
+                                  },
+                                )
+                              : null,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Auto-verify pending against Graduation Roster',
+                      child: InkWell(
+                        onTap: _showRosterAutoVerifyDialog,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentGold.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.accentGold),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.bolt_rounded, size: 18, color: AppColors.primaryNavy),
+                              SizedBox(width: 4),
+                              Text('Roster Match', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
 
@@ -119,6 +224,34 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+
+                // Skills quick-filter chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _popularSkills.map((sk) {
+                      final isSelected = (_selectedSkill == sk) || (_selectedSkill == null && sk == 'All Skills');
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(sk, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textPrimary)),
+                          selected: isSelected,
+                          selectedColor: AppColors.primaryNavy,
+                          backgroundColor: AppColors.surfaceElevated,
+                          checkmarkColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          onSelected: (val) {
+                            setState(() {
+                              _selectedSkill = sk;
+                            });
+                            _applyFilter();
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ),
           ),
@@ -148,6 +281,7 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
                                   setState(() {
                                     _filterStatus = 'ALL';
                                     _selectedYear = 0;
+                                    _selectedSkill = null;
                                   });
                                   _applyFilter();
                                 },
@@ -225,7 +359,7 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
                                                   const SizedBox(width: 4),
                                                   Expanded(
                                                     child: Text(
-                                                      '${item.currentJobTitle} at ${item.currentEmployer}',
+                                                      '${item.currentJobTitle} at ${item.currentEmployer}${item.currentJobStartDate != null ? ' (Since ${item.currentJobStartDate})' : ''}',
                                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryNavy),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
@@ -239,6 +373,56 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> {
                                                 style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+
+                                            // Date shared by alumnus
+                                            if (item.createdAt != null) ...[
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.calendar_month_rounded, size: 12, color: AppColors.textMuted),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Joined: ${item.createdAt!.length >= 10 ? item.createdAt!.substring(0, 10) : item.createdAt}',
+                                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                                  ),
+                                                  if (item.updatedAt != null && item.updatedAt != item.createdAt) ...[
+                                                    const Text(' • ', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                                    Text(
+                                                      'Updated: ${item.updatedAt!.length >= 10 ? item.updatedAt!.substring(0, 10) : item.updatedAt}',
+                                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ],
+
+                                            if (item.skillsList.isNotEmpty || item.isAvailableForMentorship) ...[
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 4,
+                                                runSpacing: 4,
+                                                children: [
+                                                  if (item.isAvailableForMentorship)
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: AppColors.accentGold.withOpacity(0.2),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: const Text('🤝 Mentor', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                                                    ),
+                                                  ...item.skillsList.take(3).map((sk) => Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.surfaceElevated,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: AppColors.border),
+                                                    ),
+                                                    child: Text(sk, style: const TextStyle(fontSize: 10, color: AppColors.primaryNavy, fontWeight: FontWeight.w600)),
+                                                  )),
+                                                ],
                                               ),
                                             ],
                                           ],

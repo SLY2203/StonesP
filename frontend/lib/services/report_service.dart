@@ -16,6 +16,7 @@ class ReportService {
   String getCSVExportUrl({int? year, String? programme}) {
     String url = '${_client.baseUrl}/reports/export/csv/';
     List<String> queryParts = [];
+    if (_client.accessToken != null) queryParts.add('token=${_client.accessToken}');
     if (year != null) queryParts.add('graduation_year=$year');
     if (programme != null && programme.isNotEmpty) queryParts.add('programme=${Uri.encodeComponent(programme)}');
     if (queryParts.isNotEmpty) url += '?${queryParts.join('&')}';
@@ -25,9 +26,19 @@ class ReportService {
   String getPDFExportUrl({int? year, String? programme}) {
     String url = '${_client.baseUrl}/reports/export/pdf/';
     List<String> queryParts = [];
+    if (_client.accessToken != null) queryParts.add('token=${_client.accessToken}');
     if (year != null) queryParts.add('graduation_year=$year');
     if (programme != null && programme.isNotEmpty) queryParts.add('programme=${Uri.encodeComponent(programme)}');
     if (queryParts.isNotEmpty) url += '?${queryParts.join('&')}';
     return url;
+  }
+
+  Future<List<int>> downloadReportBytes(String type, {int? year, String? programme}) async {
+    final Map<String, dynamic> params = {};
+    if (year != null) params['graduation_year'] = year;
+    if (programme != null && programme.isNotEmpty) params['programme'] = programme;
+
+    final endpoint = type.toUpperCase() == 'PDF' ? 'reports/export/pdf/' : 'reports/export/csv/';
+    return await _client.getBytes(endpoint, queryParams: params);
   }
 }
