@@ -23,3 +23,4 @@ frontend/.flutter-plugins-dependencies
 jdk17/
 jdk17.zip
 .venv/
+*.apk
