@@ -1,5 +1,6 @@
 from django.db import models
 from alumni.models import AlumniProfile
+from .tracer_models import TracerSurvey
 
 class CareerRecord(models.Model):
     class EmploymentStatus(models.TextChoices):

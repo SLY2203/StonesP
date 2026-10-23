@@ -13,6 +13,9 @@ import 'feedback_survey_module.dart';
 import 'career_timeline_screen.dart';
 import 'profile_view_edit_screen.dart';
 import 'mentorship_hub_screen.dart';
+import 'matched_jobs_screen.dart';
+import 'tracer_survey_screen.dart';
+import '../common/notifications_screen.dart';
 import '../auth/login_screen.dart';
 
 class AlumniHomeScreen extends StatefulWidget {
@@ -108,6 +111,16 @@ class _AlumniHomeScreenState extends State<AlumniHomeScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.notifications_outlined, size: 22),
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded, size: 20),
             tooltip: 'Sign Out',
             onPressed: _handleLogout,
@@ -169,7 +182,7 @@ class _DashboardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 6,
       child: Column(
         children: [
           Container(
@@ -188,6 +201,14 @@ class _DashboardShell extends StatelessWidget {
                 Tab(
                   icon: Icon(Icons.campaign_outlined, size: 19),
                   text: 'Feeds & Notices',
+                ),
+                Tab(
+                  icon: Icon(Icons.auto_awesome, size: 19),
+                  text: 'AI Job Matches',
+                ),
+                Tab(
+                  icon: Icon(Icons.poll_outlined, size: 19),
+                  text: 'Tracer Survey',
                 ),
                 Tab(
                   icon: Icon(Icons.event_available_outlined, size: 19),
@@ -209,6 +230,8 @@ class _DashboardShell extends StatelessWidget {
             child: TabBarView(
               children: [
                 FeedsModuleView(),
+                MatchedJobsScreen(),
+                TracerSurveyScreen(),
                 EventsModuleView(),
                 JobApplicationsModule(),
                 FeedbackSurveyModule(),

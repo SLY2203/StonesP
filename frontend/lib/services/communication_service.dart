@@ -150,5 +150,25 @@ class CommunicationService {
     List results = response is Map && response.containsKey('results') ? response['results'] : response;
     return results.map((item) => DepartmentFeedbackModel.fromJson(item)).toList();
   }
+
+  // Objective 4: In-app notifications & read receipts
+  Future<void> markCommunicationAsRead(int communicationId) async {
+    try {
+      await _client.post('communications/$communicationId/read/');
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>> getInAppNotifications() async {
+    final response = await _client.get('communications/notifications/');
+    return response as Map<String, dynamic>;
+  }
+
+  Future<void> markNotificationAsRead(int notificationId) async {
+    await _client.post('communications/notifications/$notificationId/read/');
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    await _client.post('communications/notifications/read-all/');
+  }
 }
 

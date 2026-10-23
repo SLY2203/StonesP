@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Communication, RSVP, DepartmentFeedback, SystemFeedbackSurvey
+from .models import (
+    Communication,
+    RSVP,
+    DepartmentFeedback,
+    SystemFeedbackSurvey,
+    InAppNotification,
+    CommunicationReadReceipt,
+)
 
 class RSVPSerializer(serializers.ModelSerializer):
     alumnus_name = serializers.CharField(source='alumnus.user.get_full_name', read_only=True)
@@ -31,17 +38,18 @@ class CommunicationSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     counts = serializers.SerializerMethodField()
     my_rsvp = serializers.SerializerMethodField()
+    is_read = serializers.SerializerMethodField()
 
     class Meta:
         model = Communication
         fields = [
             'id', 'title', 'content', 'category', 'category_display',
-            'target_graduation_year', 'target_programme',
+            'target_graduation_year', 'target_programme', 'target_skills',
             'event_date', 'location', 'application_deadline', 'external_link',
-            'created_by', 'author_name', 'counts', 'my_rsvp',
+            'created_by', 'author_name', 'counts', 'my_rsvp', 'is_read',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_by', 'author_name', 'counts', 'my_rsvp', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_by', 'author_name', 'counts', 'my_rsvp', 'is_read', 'created_at', 'updated_at']
 
     def get_counts(self, obj):
         return {
@@ -49,6 +57,7 @@ class CommunicationSerializer(serializers.ModelSerializer):
             'attending': obj.rsvps.filter(response_type=RSVP.ResponseType.ATTENDING).count(),
             'interested': obj.rsvps.filter(response_type=RSVP.ResponseType.INTERESTED).count(),
             'applied': obj.rsvps.filter(response_type=RSVP.ResponseType.APPLIED).count(),
+            'reads': obj.read_receipts.count(),
         }
 
     def get_my_rsvp(self, obj):
@@ -61,6 +70,12 @@ class CommunicationSerializer(serializers.ModelSerializer):
                     'created_at': user_rsvp.created_at
                 }
         return None
+
+    def get_is_read(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.read_receipts.filter(user=request.user).exists()
+        return False
 
 class DepartmentFeedbackSerializer(serializers.ModelSerializer):
     alumnus_name = serializers.CharField(source='alumnus.user.get_full_name', read_only=True)
@@ -93,3 +108,25 @@ class SystemFeedbackSurveySerializer(serializers.ModelSerializer):
             'created_at'
         ]
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_role', 'aspect_display', 'created_at']
+
+
+class InAppNotificationSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = InAppNotification
+        fields = [
+            'id', 'user', 'title', 'message', 'category', 'category_display',
+            'reference_id', 'action_url', 'is_read', 'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'category_display', 'created_at']
+
+
+class CommunicationReadReceiptSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = CommunicationReadReceipt
+        fields = ['id', 'communication', 'user', 'user_name', 'user_email', 'read_at']
+        read_only_fields = ['id', 'user', 'read_at']

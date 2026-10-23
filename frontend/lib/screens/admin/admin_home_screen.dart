@@ -13,6 +13,7 @@ import 'alumni_detail_verification_screen.dart';
 import 'admin_feedback_screen.dart';
 import 'broadcast_composer_screen.dart';
 import 'reports_dashboard_screen.dart';
+import 'post_ai_job_screen.dart';
 import '../auth/login_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -369,7 +370,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      // Post Job Button
+                      // AI Job Matcher Button
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accentGold,
@@ -377,8 +378,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text('AI Job Matcher', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PostAiJobScreen()),
+                          );
+                        },
+                      ),
+                      // Post Job Button
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.18),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                         icon: const Icon(Icons.work_rounded, size: 16),
-                        label: const Text('Post Job Vacancy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: const Text('Post Vacancy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: _showPostJobDialog,
                       ),
                       // See Feedbacks Button

@@ -10,9 +10,19 @@ import 'providers/communication_provider.dart';
 import 'providers/report_provider.dart';
 import 'screens/splash_screen.dart';
 
+import 'dart:async';
+
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MSUDCSAlumniApp());
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      debugPrint("FlutterError: ${details.exceptionAsString()}");
+    };
+    runApp(const MSUDCSAlumniApp());
+  }, (error, stack) {
+    debugPrint("Global uncaught error: $error\n$stack");
+  });
 }
 
 class MSUDCSAlumniApp extends StatelessWidget {

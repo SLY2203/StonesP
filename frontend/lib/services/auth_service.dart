@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../models/user_model.dart';
 import 'api_client.dart';
 
 class AuthService {
   final ApiClient _client = ApiClient();
-  final _storage = const FlutterSecureStorage();
 
   Future<Map<String, dynamic>> login(String email, String password, {String? role}) async {
     final body = <String, dynamic>{
@@ -31,7 +30,8 @@ class AuthService {
     final user = UserModel.fromJson(userJson);
 
     try {
-      await _storage.write(key: AppConstants.keyUserData, value: jsonEncode(userJson));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.keyUserData, jsonEncode(userJson));
     } catch (_) {}
 
     return {'user': user, 'access': access, 'refresh': refresh};
@@ -64,7 +64,8 @@ class AuthService {
 
   Future<UserModel?> getSavedUser() async {
     try {
-      final jsonStr = await _storage.read(key: AppConstants.keyUserData);
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(AppConstants.keyUserData);
       if (jsonStr != null) {
         return UserModel.fromJson(jsonDecode(jsonStr));
       }
@@ -76,7 +77,8 @@ class AuthService {
     final response = await _client.get('auth/me/');
     final user = UserModel.fromJson(response);
     try {
-      await _storage.write(key: AppConstants.keyUserData, value: jsonEncode(response));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.keyUserData, jsonEncode(response));
     } catch (_) {}
     return user;
   }

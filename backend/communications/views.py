@@ -2,8 +2,23 @@ from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from .models import Communication, RSVP
-from .serializers import CommunicationSerializer, RSVPSerializer
+from django.db.models import Q
+from .models import (
+    Communication,
+    RSVP,
+    DepartmentFeedback,
+    SystemFeedbackSurvey,
+    InAppNotification,
+    CommunicationReadReceipt,
+)
+from .serializers import (
+    CommunicationSerializer,
+    RSVPSerializer,
+    DepartmentFeedbackSerializer,
+    SystemFeedbackSurveySerializer,
+    InAppNotificationSerializer,
+    CommunicationReadReceiptSerializer,
+)
 from accounts.permissions import IsAdminUserRole, IsVerifiedAlumnus
 from alumni.models import AlumniProfile
 from .fcm_service import FCMNotificationService
@@ -12,6 +27,7 @@ class CommunicationListCreateView(generics.ListCreateAPIView):
     """
     List communications feed (verified alumni and admins)
     Create new communication broadcast (department admins only)
+    Supports skill-based targeting and cohort filtering.
     """
     serializer_class = CommunicationSerializer
 
@@ -21,7 +37,7 @@ class CommunicationListCreateView(generics.ListCreateAPIView):
         return [IsVerifiedAlumnus()]
 
     def get_queryset(self):
-        qs = Communication.objects.select_related('created_by').prefetch_related('rsvps').all()
+        qs = Communication.objects.select_related('created_by').prefetch_related('rsvps', 'read_receipts').all()
 
         category = self.request.query_params.get('category')
         if category:
@@ -31,12 +47,44 @@ class CommunicationListCreateView(generics.ListCreateAPIView):
         if year and year.isdigit():
             qs = qs.filter(target_graduation_year=int(year))
 
+        skill = self.request.query_params.get('skill')
+        if skill:
+            qs = qs.filter(target_skills__icontains=skill.strip())
+
         return qs
 
     def perform_create(self, serializer):
         comm = serializer.save(created_by=self.request.user)
         # Trigger push notification dispatch
         FCMNotificationService.send_broadcast_notification(comm)
+
+        # Dispatch InAppNotification to targeted alumni
+        alumni_qs = AlumniProfile.objects.select_related('user').filter(user__is_verified=True)
+        if comm.target_graduation_year:
+            alumni_qs = alumni_qs.filter(graduation_year=comm.target_graduation_year)
+        if comm.target_programme:
+            alumni_qs = alumni_qs.filter(programme__icontains=comm.target_programme)
+        if comm.target_skills:
+            skills = [s.strip() for s in comm.target_skills.split(',') if s.strip()]
+            q_skills = Q()
+            for s in skills:
+                q_skills |= Q(skills__icontains=s)
+            alumni_qs = alumni_qs.filter(q_skills)
+
+        # Bulk create notifications (capped at 500 for safety)
+        notifs = [
+            InAppNotification(
+                user=alumnus.user,
+                title=f"New {comm.get_category_display()}: {comm.title}",
+                message=comm.content[:200],
+                category='BROADCAST',
+                reference_id=str(comm.id),
+                action_url=f"/communications/{comm.id}",
+            )
+            for alumnus in alumni_qs[:500]
+        ]
+        if notifs:
+            InAppNotification.objects.bulk_create(notifs)
 
 class CommunicationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -228,3 +276,58 @@ class SystemFeedbackSurveyAnalyticsView(APIView):
             'recommend_rate': recommend_rate,
             'rating_breakdown': breakdown,
         })
+
+
+class CommunicationReadView(APIView):
+    """
+    Mark a communication as read by the current user (read receipt).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        comm = get_object_or_404(Communication, pk=pk)
+        receipt, _ = CommunicationReadReceipt.objects.get_or_create(
+            communication=comm,
+            user=request.user
+        )
+        return Response({'status': 'marked_as_read', 'read_at': receipt.read_at})
+
+
+class InAppNotificationListView(APIView):
+    """
+    Returns user's in-app notification center inbox + unread count.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        notifications = InAppNotification.objects.filter(user=request.user).order_by('-created_at')[:50]
+        unread_count = InAppNotification.objects.filter(user=request.user, is_read=False).count()
+        serializer = InAppNotificationSerializer(notifications, many=True)
+        return Response({
+            'unread_count': unread_count,
+            'notifications': serializer.data,
+        })
+
+
+class MarkNotificationReadView(APIView):
+    """
+    Marks a single notification as read.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        notif = get_object_or_404(InAppNotification, pk=pk, user=request.user)
+        notif.is_read = True
+        notif.save(update_fields=['is_read'])
+        return Response({'status': 'marked_as_read'})
+
+
+class MarkAllNotificationsReadView(APIView):
+    """
+    Marks all notifications for current user as read.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        count = InAppNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({'status': 'all_marked_as_read', 'updated_count': count})

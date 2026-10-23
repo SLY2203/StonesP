@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 
 class ApiException implements Exception {
@@ -20,9 +20,9 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
-  final _storage = const FlutterSecureStorage();
   String? _accessToken;
   String? _refreshToken;
+  String? get refreshToken => _refreshToken;
 
   static String get _detectInitialBaseUrl {
     try {
@@ -55,20 +55,20 @@ class ApiClient {
 
   Future<void> initTokens() async {
     try {
-      _accessToken = await _storage.read(key: AppConstants.keyAccessToken);
-      _refreshToken = await _storage.read(key: AppConstants.keyRefreshToken);
-    } catch (_) {
-      // Secure storage fallback if unavailable in environment
-    }
+      final prefs = await SharedPreferences.getInstance();
+      _accessToken = prefs.getString(AppConstants.keyAccessToken);
+      _refreshToken = prefs.getString(AppConstants.keyRefreshToken);
+    } catch (_) {}
   }
 
   Future<void> saveTokens({required String access, String? refresh}) async {
     _accessToken = access;
     if (refresh != null) _refreshToken = refresh;
     try {
-      await _storage.write(key: AppConstants.keyAccessToken, value: access);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.keyAccessToken, access);
       if (refresh != null) {
-        await _storage.write(key: AppConstants.keyRefreshToken, value: refresh);
+        await prefs.setString(AppConstants.keyRefreshToken, refresh);
       }
     } catch (_) {}
   }
@@ -77,9 +77,10 @@ class ApiClient {
     _accessToken = null;
     _refreshToken = null;
     try {
-      await _storage.delete(key: AppConstants.keyAccessToken);
-      await _storage.delete(key: AppConstants.keyRefreshToken);
-      await _storage.delete(key: AppConstants.keyUserData);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(AppConstants.keyAccessToken);
+      await prefs.remove(AppConstants.keyRefreshToken);
+      await prefs.remove(AppConstants.keyUserData);
     } catch (_) {}
   }
 

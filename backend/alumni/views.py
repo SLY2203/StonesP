@@ -1,6 +1,7 @@
 import csv
 import io
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q
@@ -21,9 +22,11 @@ from accounts.permissions import IsAdminUserRole
 class MyProfileView(generics.RetrieveUpdateAPIView):
     """
     Alumni endpoint to view and update their own personal, skills, and mentorship profile.
+    Supports JSON and multipart form data (profile photo upload).
     """
     serializer_class = AlumniProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         profile, _ = AlumniProfile.objects.get_or_create(

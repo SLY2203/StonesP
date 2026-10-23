@@ -170,7 +170,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       label: 'MSU Registration Number',
                       hint: 'e.g. R201456B',
                       prefixIcon: Icons.badge_outlined,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Registration number is required' : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Registration number is required';
+                        final reg = v.trim().toUpperCase();
+                        if (!RegExp(r'^R\d{4,6}[A-Z]$').hasMatch(reg)) {
+                          return 'Pattern: R followed by 4-6 digits & letter (e.g. R201456B)';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 14),
 

@@ -27,6 +27,12 @@ class Communication(models.Model):
         null=True,
         help_text="Optional programme filter (null = all programmes)"
     )
+    target_skills = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Optional comma-separated skill filter (e.g. Flutter, Python, Docker)"
+    )
     
     # Event and Job specific fields
     event_date = models.DateTimeField(blank=True, null=True)
@@ -172,3 +178,78 @@ class SystemFeedbackSurvey(models.Model):
 
     def __str__(self):
         return f"System Survey: {self.user.get_full_name()} - {self.overall_rating}★"
+
+
+class InAppNotification(models.Model):
+    """
+    Objective 4: In-app notification center for alerts (job matches, announcements,
+    events, mentorship responses).
+    """
+    CATEGORY_CHOICES = [
+        ('BROADCAST', 'Broadcast Announcement'),
+        ('EVENT', 'Event Alert'),
+        ('JOB_MATCH', 'AI Job Match'),
+        ('MENTORSHIP', 'Mentorship Update'),
+        ('SYSTEM', 'System Alert'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='in_app_notifications'
+    )
+    title = models.CharField(max_length=220)
+    message = models.TextField()
+    category = models.CharField(
+        max_length=40,
+        choices=CATEGORY_CHOICES,
+        default='SYSTEM'
+    )
+    reference_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="Optional ID of associated object (job id, communication id, etc.)"
+    )
+    action_url = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Deep link or route in frontend"
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"Notification: {self.user.email} - {self.title} ({'Read' if self.is_read else 'Unread'})"
+
+
+class CommunicationReadReceipt(models.Model):
+    """
+    Objective 4: Read receipts / open tracking for broadcasts.
+    """
+    communication = models.ForeignKey(
+        Communication,
+        on_delete=models.CASCADE,
+        related_name='read_receipts'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='communication_reads'
+    )
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('communication', 'user')
+        ordering = ['-read_at']
+
+    def __str__(self):
+        return f"{self.user.email} read '{self.communication.title}' at {self.read_at}"

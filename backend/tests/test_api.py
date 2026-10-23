@@ -292,3 +292,115 @@ class MSUDCSAlumniAPITests(TestCase):
         self.assertEqual(respond_res.status_code, status.HTTP_200_OK)
         self.assertEqual(respond_res.data['status'], 'ACCEPTED')
 
+    def test_tracer_survey_submission_and_analytics(self):
+        """Test Objective 2: Tracer survey submission and department analytics."""
+        self.client.force_authenticate(user=self.alumni_user)
+
+        # Submit tracer survey
+        survey_payload = {
+            'had_job_before_graduation': False,
+            'months_to_first_job': 4,
+            'first_job_title': 'Junior Software Developer',
+            'first_employer': 'Econet Wireless',
+            'first_job_sector': 'Software & IT Services',
+            'current_salary_band': '1000_2000',
+            'degree_relevance': 'HIGHLY_RELEVANT',
+            'career_satisfaction': 5,
+            'curriculum_satisfaction': 4,
+            'job_search_method': 'ONLINE_PORTAL',
+            'skills_gap': 'Cloud infrastructure, Docker, Flutter',
+            'is_complete': True,
+        }
+        res = self.client.post('/api/careers/tracer-survey/me/', survey_payload, format='json')
+        self.assertIn(res.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        self.assertEqual(res.data['months_to_first_job'], 4)
+        self.assertEqual(res.data['degree_relevance'], 'HIGHLY_RELEVANT')
+
+        # Retrieve own survey
+        get_res = self.client.get('/api/careers/tracer-survey/me/')
+        self.assertEqual(get_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(get_res.data['first_employer'], 'Econet Wireless')
+
+        # Admin analytics
+        self.client.force_authenticate(user=self.admin_user)
+        analytics_res = self.client.get('/api/careers/tracer-survey/analytics/')
+        self.assertEqual(analytics_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(analytics_res.data['total_completed'], 1)
+        self.assertEqual(analytics_res.data['avg_months_to_first_job'], 4.0)
+
+    def test_ai_job_extraction_and_matching(self):
+        """Test Objective 3: AI vacancy extraction, publishing, and candidate matching."""
+        # Update alumni profile skills
+        self.alumni_profile.skills = 'Python, Django, Flutter, PostgreSQL'
+        self.alumni_profile.save()
+
+        # Admin extracts job from advert text
+        self.client.force_authenticate(user=self.admin_user)
+        raw_ad = (
+            "Cassava Smartech is hiring a Mid-level Python and Flutter Developer in Harare. "
+            "Must have experience with Django REST framework and PostgreSQL database. "
+            "Salary: $1,500 - $2,200. Apply at https://cassava.jobs"
+        )
+        extract_res = self.client.post('/api/jobs/admin/vacancies/ai-extract/', {
+            'raw_advert_text': raw_ad,
+        }, format='json')
+        self.assertEqual(extract_res.status_code, status.HTTP_201_CREATED)
+        job_id = extract_res.data['job']['id']
+
+        # Admin publishes job and triggers matching
+        publish_res = self.client.post(f'/api/jobs/admin/vacancies/{job_id}/publish-and-match/')
+        self.assertEqual(publish_res.status_code, status.HTTP_200_OK)
+        self.assertGreater(publish_res.data['total_matches'], 0)
+
+        # Alumni views matched jobs
+        self.client.force_authenticate(user=self.alumni_user)
+        matched_res = self.client.get('/api/jobs/alumni/matched/')
+        self.assertEqual(matched_res.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(matched_res.data), 1)
+        self.assertIn('flutter', matched_res.data[0]['skills_overlap'].lower())
+
+        # Alumni applies to job
+        apply_res = self.client.post(f'/api/jobs/alumni/apply/{job_id}/', {
+            'cover_note': 'I have built multiple production Flutter + Django systems at MSU DCS.'
+        }, format='json')
+        self.assertEqual(apply_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(apply_res.data['application']['status'], 'APPLIED')
+
+    def test_in_app_notifications_and_read_receipts(self):
+        """Test Objective 4: Targeted broadcast creates notification and read receipt."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Post targeted broadcast
+        broadcast_res = self.client.post('/api/communications/', {
+            'title': 'MSU Tech Career Fair 2026',
+            'content': 'Leading tech companies visiting Gweru Campus for direct recruitment.',
+            'category': 'EVENT',
+            'target_graduation_year': 2021,
+            'target_programme': 'Computer Science',
+        }, format='json')
+        self.assertEqual(broadcast_res.status_code, status.HTTP_201_CREATED)
+        comm_id = broadcast_res.data['id']
+
+        # Alumni checks in-app notifications
+        self.client.force_authenticate(user=self.alumni_user)
+        notif_res = self.client.get('/api/communications/notifications/')
+        self.assertEqual(notif_res.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(notif_res.data['unread_count'], 1)
+
+        # Mark communication as read
+        read_res = self.client.post(f'/api/communications/{comm_id}/read/')
+        self.assertEqual(read_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(read_res.data['status'], 'marked_as_read')
+
+    def test_advanced_reports_analytics(self):
+        """Test Objective 5: Report summary includes advanced analytics."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        summary_res = self.client.get('/api/reports/summary/')
+        self.assertEqual(summary_res.status_code, status.HTTP_200_OK)
+        self.assertIn('time_to_first_job', summary_res.data)
+        self.assertIn('sector_distribution', summary_res.data)
+        self.assertIn('career_progression', summary_res.data)
+        self.assertIn('cohort_trends', summary_res.data)
+        self.assertIn('tracer_survey_summary', summary_res.data)
+

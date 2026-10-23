@@ -515,11 +515,318 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 18),
+
+                // Objective 5: Time to First Job
+                if (summary.timeToFirstJob != null) ...[
+                  _buildTimeToFirstJobCard(summary.timeToFirstJob!),
+                  const SizedBox(height: 18),
+                ],
+
+                // Objective 5: Career Progression Tracking
+                if (summary.careerProgression != null) ...[
+                  _buildCareerProgressionCard(summary.careerProgression!),
+                  const SizedBox(height: 18),
+                ],
+
+                // Objective 5: Cohort Employment Trends
+                if (summary.cohortTrends.isNotEmpty) ...[
+                  _buildCohortTrendsCard(summary.cohortTrends),
+                  const SizedBox(height: 18),
+                ],
+
+                // Objective 5: Tracer Survey Satisfaction
+                if (summary.tracerSurveySummary != null && (summary.tracerSurveySummary!['total_responses'] ?? 0) > 0) ...[
+                  _buildTracerSurveyCard(summary.tracerSurveySummary!),
+                  const SizedBox(height: 18),
+                ],
+
                 const SizedBox(height: 30),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTimeToFirstJobCard(Map<String, dynamic> data) {
+    final avg = data['average_months'] ?? 0.0;
+    final sample = data['sample_size'] ?? 0;
+    final dist = (data['distribution'] as List?) ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.timer_outlined, size: 20, color: AppColors.primaryNavy),
+                  SizedBox(width: 8),
+                  Text(
+                    'Time to First Job After Graduation',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.infoBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Avg $avg months', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.info)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Computed across $sample alumni with verified start dates', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          const SizedBox(height: 16),
+          ...dist.map((d) {
+            final label = d['label'] ?? '';
+            final count = d['count'] ?? 0;
+            final pct = (d['percentage'] as num?)?.toDouble() ?? 0.0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                      Text('$count ($pct%)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: pct / 100,
+                    backgroundColor: AppColors.surfaceElevated,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 6,
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCareerProgressionCard(Map<String, dynamic> data) {
+    final multiple = data['alumni_with_multiple_roles'] ?? 0;
+    final rate = data['progression_rate'] ?? 0.0;
+    final leadership = data['leadership_roles_count'] ?? 0;
+    final leadPct = data['leadership_percentage'] ?? 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.trending_up_rounded, size: 20, color: AppColors.success),
+              SizedBox(width: 8),
+              Text(
+                'Career Progression & Mobility',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text('Alumni advancing from entry roles to senior leadership', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Promotions / Role Changes', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text('$multiple alumni', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                      Text('$rate% mobility rate', style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningBg.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Senior / Leadership Roles', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text('$leadership alumni', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                      Text('$leadPct% of employed', style: const TextStyle(fontSize: 11, color: AppColors.accentGold, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCohortTrendsCard(List<Map<String, dynamic>> trends) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bar_chart_rounded, size: 20, color: AppColors.accentGold),
+              SizedBox(width: 8),
+              Text(
+                'Year-over-Year Cohort Employment Rates',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text('Employment rate comparison across graduating classes', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          const SizedBox(height: 16),
+          ...trends.map((t) {
+            final year = t['year'] ?? '';
+            final total = t['total_alumni'] ?? 0;
+            final employed = t['employed_count'] ?? 0;
+            final rate = (t['employment_rate'] as num?)?.toDouble() ?? 0.0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Class of $year', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      Text('$rate% ($employed/$total)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: rate / 100,
+                    backgroundColor: AppColors.surfaceElevated,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      rate >= 80 ? AppColors.success : (rate >= 60 ? AppColors.accentGold : AppColors.info),
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 8,
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTracerSurveyCard(Map<String, dynamic> data) {
+    final total = data['total_responses'] ?? 0;
+    final careerSat = data['avg_career_satisfaction'] ?? 0.0;
+    final currSat = data['avg_curriculum_satisfaction'] ?? 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.school_rounded, size: 20, color: AppColors.catEvent),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tracer Survey Feedback',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                  ),
+                ],
+              ),
+              Text('$total Responses', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.catEvent)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.surfaceElevated, borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Career Satisfaction', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text('★ $careerSat / 5.0', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.accentGold)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.surfaceElevated, borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Curriculum Prep Rating', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text('★ $currSat / 5.0', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -535,3 +842,4 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
     );
   }
 }
+

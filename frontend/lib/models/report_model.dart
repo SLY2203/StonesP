@@ -217,6 +217,11 @@ class ReportSummaryModel {
   final List<RecentAlumnusRegistrationModel> recentRegistrations;
   final List<RecentCareerUpdateModel> recentCareerUpdates;
   final List<RecentFeedbackItemModel> recentFeedbacks;
+  final Map<String, dynamic>? timeToFirstJob;
+  final List<Map<String, dynamic>> sectorDistribution;
+  final Map<String, dynamic>? careerProgression;
+  final List<Map<String, dynamic>> cohortTrends;
+  final Map<String, dynamic>? tracerSurveySummary;
   final String generatedAt;
 
   ReportSummaryModel({
@@ -228,6 +233,11 @@ class ReportSummaryModel {
     this.recentRegistrations = const [],
     this.recentCareerUpdates = const [],
     this.recentFeedbacks = const [],
+    this.timeToFirstJob,
+    this.sectorDistribution = const [],
+    this.careerProgression,
+    this.cohortTrends = const [],
+    this.tracerSurveySummary,
     required this.generatedAt,
   });
 
@@ -239,6 +249,8 @@ class ReportSummaryModel {
     var rawRegs = (json['recent_registrations'] as List?) ?? [];
     var rawCareers = (json['recent_career_updates'] as List?) ?? [];
     var rawFeedbacks = (json['recent_feedbacks'] as List?) ?? [];
+    var rawSectorDist = (json['sector_distribution'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    var rawCohortTrends = (json['cohort_trends'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     return ReportSummaryModel(
       metrics: ReportMetrics.fromJson(json['metrics'] ?? {}),
@@ -249,7 +261,13 @@ class ReportSummaryModel {
       recentRegistrations: rawRegs.map((e) => RecentAlumnusRegistrationModel.fromJson(e)).toList(),
       recentCareerUpdates: rawCareers.map((e) => RecentCareerUpdateModel.fromJson(e)).toList(),
       recentFeedbacks: rawFeedbacks.map((e) => RecentFeedbackItemModel.fromJson(e)).toList(),
+      timeToFirstJob: json['time_to_first_job'] as Map<String, dynamic>?,
+      sectorDistribution: rawSectorDist,
+      careerProgression: json['career_progression'] as Map<String, dynamic>?,
+      cohortTrends: rawCohortTrends,
+      tracerSurveySummary: json['tracer_survey_summary'] as Map<String, dynamic>?,
       generatedAt: json['generated_at'] ?? '',
     );
   }
 }
+

@@ -23,39 +23,48 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    await auth.initSession();
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      await Future.delayed(const Duration(milliseconds: 1200));
+      await auth.initSession();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (!auth.isAuthenticated) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    } else if (auth.isAdmin) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-      );
-    } else if (auth.isAlumnus) {
-      if (auth.isVerified) {
+      if (!auth.isAuthenticated) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const AlumniHomeScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
+      } else if (auth.isAdmin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+        );
+      } else if (auth.isAlumnus) {
+        if (auth.isVerified) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AlumniHomeScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
+          );
+        }
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       }
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
     }
   }
 

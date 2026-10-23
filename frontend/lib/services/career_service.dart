@@ -28,4 +28,25 @@ class CareerService {
     final response = await _client.get('careers/stats/');
     return response as Map<String, dynamic>;
   }
+
+  // Objective 2: Tracer Survey API calls
+  Future<Map<String, dynamic>?> getMyTracerSurvey() async {
+    try {
+      final response = await _client.get('careers/tracer-survey/me/');
+      return response as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> submitTracerSurvey(Map<String, dynamic> data) async {
+    final response = await _client.post('careers/tracer-survey/me/', body: data);
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getTracerSurveyAnalytics() async {
+    final response = await _client.get('careers/tracer-survey/analytics/');
+    return response as Map<String, dynamic>;
+  }
 }
+

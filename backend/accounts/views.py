@@ -35,7 +35,14 @@ class RegisterAlumniView(generics.CreateAPIView):
         else:
             msg = 'Registration successful. Your account is pending verification by DCS Department Staff.'
 
-        return Response({
+        # Collect roster cross-validation warnings
+        warnings = []
+        if getattr(user, 'roster_year_mismatch', False):
+            warnings.append('The graduation year you entered does not match the official roster record. This will be flagged for staff review.')
+        if getattr(user, 'roster_name_mismatch', False):
+            warnings.append('The name you entered does not closely match the official roster record. Staff may request clarification.')
+
+        response_data = {
             'message': msg,
             'user': {
                 'id': user.id,
@@ -44,7 +51,11 @@ class RegisterAlumniView(generics.CreateAPIView):
                 'role': user.role,
                 'is_verified': user.is_verified,
             }
-        }, status=status.HTTP_201_CREATED)
+        }
+        if warnings:
+            response_data['warnings'] = warnings
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 class CurrentUserView(generics.RetrieveUpdateAPIView):
     """

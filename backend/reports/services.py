@@ -1,9 +1,10 @@
 import csv
 import io
 from datetime import datetime
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg
 from alumni.models import AlumniProfile
 from careers.models import CareerRecord
+from careers.tracer_models import TracerSurvey
 from communications.models import Communication, RSVP
 from accounts.models import User
 
@@ -110,6 +111,94 @@ class AlumniReportService:
                 'updated_at': c.updated_at.strftime('%Y-%m-%d %H:%M:%S') if c.updated_at else None,
             })
 
+        # --- Objective 5: Advanced Analytics ---
+        # 1. Time to First Job Metric
+        months_list = []
+        for p in profiles_qs.prefetch_related('career_records'):
+            survey = getattr(p, 'tracer_survey', None)
+            if survey and survey.months_to_first_job is not None:
+                months_list.append(survey.months_to_first_job)
+            else:
+                first_career = p.career_records.order_by('start_date').first()
+                if first_career and first_career.start_date and p.graduation_year:
+                    diff_months = (first_career.start_date.year - p.graduation_year) * 12 + (first_career.start_date.month - 11)
+                    months_list.append(max(0, diff_months))
+
+        avg_months = round(sum(months_list) / len(months_list), 1) if months_list else 0.0
+        sample_size = len(months_list) or 1
+        under_3 = sum(1 for m in months_list if m < 3)
+        between_3_6 = sum(1 for m in months_list if 3 <= m <= 6)
+        between_6_12 = sum(1 for m in months_list if 6 < m <= 12)
+        over_12 = sum(1 for m in months_list if m > 12)
+
+        time_to_first_job = {
+            'average_months': avg_months,
+            'sample_size': len(months_list),
+            'distribution': [
+                {'label': '< 3 Months', 'count': under_3, 'percentage': round((under_3 / sample_size) * 100, 1)},
+                {'label': '3 - 6 Months', 'count': between_3_6, 'percentage': round((between_3_6 / sample_size) * 100, 1)},
+                {'label': '6 - 12 Months', 'count': between_6_12, 'percentage': round((between_6_12 / sample_size) * 100, 1)},
+                {'label': '> 12 Months', 'count': over_12, 'percentage': round((over_12 / sample_size) * 100, 1)},
+            ]
+        }
+
+        # 2. Complete Sector Distribution (for charts)
+        all_industries = current_careers.values('industry_sector').annotate(count=Count('id')).order_by('-count')
+        sector_distribution = [
+            {
+                'sector': item['industry_sector'],
+                'count': item['count'],
+                'percentage': round((item['count'] / denom) * 100, 1)
+            }
+            for item in all_industries
+        ]
+
+        # 3. Career Progression Tracking
+        alumni_with_multiple_roles = profiles_qs.annotate(career_count=Count('career_records')).filter(career_count__gt=1).count()
+        total_with_careers = profiles_qs.annotate(career_count=Count('career_records')).filter(career_count__gt=0).count()
+        leadership_count = current_careers.filter(
+            Q(job_title__icontains='Senior') | Q(job_title__icontains='Lead') |
+            Q(job_title__icontains='Manager') | Q(job_title__icontains='Director') |
+            Q(job_title__icontains='Head') | Q(job_title__icontains='Founder') |
+            Q(job_title__icontains='Architect') | Q(job_title__icontains='Chief')
+        ).count()
+
+        career_progression = {
+            'alumni_with_multiple_roles': alumni_with_multiple_roles,
+            'progression_rate': round((alumni_with_multiple_roles / (total_with_careers or 1)) * 100, 1),
+            'leadership_roles_count': leadership_count,
+            'leadership_percentage': round((leadership_count / denom) * 100, 1),
+        }
+
+        # 4. Cohort Trends (Year-over-Year)
+        cohort_trends = []
+        for yc in year_counts[:6]:
+            c_year = yc['graduation_year']
+            c_total = yc['count']
+            c_employed = CareerRecord.objects.filter(
+                alumnus__graduation_year=c_year,
+                is_current=True,
+                employment_status__in=[CareerRecord.EmploymentStatus.EMPLOYED, CareerRecord.EmploymentStatus.SELF_EMPLOYED]
+            ).count()
+            cohort_trends.append({
+                'year': c_year,
+                'total_alumni': c_total,
+                'employed_count': c_employed,
+                'employment_rate': round((c_employed / (c_total or 1)) * 100, 1)
+            })
+        cohort_trends.reverse()
+
+        # 5. Tracer Survey Summary
+        tracer_qs = TracerSurvey.objects.filter(alumnus__in=profiles_qs)
+        tracer_total = tracer_qs.count()
+        tracer_summary = {
+            'total_responses': tracer_total,
+            'avg_career_satisfaction': round(tracer_qs.aggregate(avg=Avg('career_satisfaction'))['avg'] or 0, 1),
+            'avg_curriculum_satisfaction': round(tracer_qs.aggregate(avg=Avg('curriculum_satisfaction'))['avg'] or 0, 1),
+            'degree_relevance': list(tracer_qs.values('degree_relevance').annotate(count=Count('id')).order_by('-count')),
+            'salary_bands': list(tracer_qs.values('current_salary_band').annotate(count=Count('id')).order_by('-count')),
+        }
+
         return {
             'filters': {'graduation_year': year, 'programme': programme},
             'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -127,6 +216,11 @@ class AlumniReportService:
                 'total_rsvps': total_rsvps,
                 'total_feedbacks': RSVP.objects.exclude(notes='').count(),
             },
+            'time_to_first_job': time_to_first_job,
+            'sector_distribution': sector_distribution,
+            'career_progression': career_progression,
+            'cohort_trends': cohort_trends,
+            'tracer_survey_summary': tracer_summary,
             'programmes': programme_counts,
             'graduation_years': year_counts,
             'top_industries': top_industries,
