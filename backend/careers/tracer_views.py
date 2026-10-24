@@ -33,12 +33,16 @@ class MyTracerSurveyView(APIView):
 
         serializer = TracerSurveySerializer(survey, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        saved_survey = serializer.save()
+
+        # Recommendation: Auto-fill months_to_first_job from career records if not manually set
+        saved_survey.auto_calculate_months_to_first_job()
 
         return Response(
-            serializer.data,
+            TracerSurveySerializer(saved_survey).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
+
 
 
 class TracerSurveyListView(generics.ListAPIView):

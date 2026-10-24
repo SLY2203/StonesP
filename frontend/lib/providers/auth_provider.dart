@@ -88,6 +88,24 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>?> lookupGraduate(String registrationNumber) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      final data = await _authService.lookupGraduate(registrationNumber);
+      _setLoading(false);
+      return data;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _setLoading(false);
+      return null;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _setLoading(false);
+      return null;
+    }
+  }
+
   Future<void> checkVerificationStatus() async {
     if (!isAuthenticated) return;
     try {

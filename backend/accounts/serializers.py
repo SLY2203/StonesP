@@ -85,6 +85,13 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             )
         if AlumniProfile.objects.filter(registration_number__iexact=reg).exists():
             raise serializers.ValidationError("An alumnus with this registration number is already registered.")
+
+        # Strict validation against official Graduation Roster
+        from alumni.models import GraduationRoster
+        if not GraduationRoster.objects.filter(registration_number__iexact=reg).exists():
+            raise serializers.ValidationError(
+                f"Registration number '{reg}' is not found in the official MSU DCS Graduation Database. Only verified graduates can register. If you graduated recently, please contact department staff."
+            )
         return reg
 
     @transaction.atomic
@@ -109,20 +116,38 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
         roster_entry = GraduationRoster.objects.filter(registration_number__iexact=reg_num).first()
         is_auto_verified = bool(roster_entry)
 
-        # Cross-validate graduation year against roster if entry found
+        # Cross-validate graduation year and name against roster if entry found
         roster_year_mismatch = False
         roster_name_mismatch = False
+        NAME_SIMILARITY_THRESHOLD = 80  # % fuzzy similarity required to auto-verify
+
         if roster_entry:
             if roster_entry.graduation_year != grad_year:
                 roster_year_mismatch = True
-            # Soft name comparison (check if submitted name overlaps with roster name)
-            submitted_name = f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}".strip().lower()
-            roster_name = roster_entry.full_name.strip().lower()
+
+            # Fuzzy name matching using rapidfuzz token_sort_ratio
+            submitted_name = f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}".strip()
+            roster_name = roster_entry.full_name.strip()
             if submitted_name and roster_name:
-                submitted_parts = set(submitted_name.split())
-                roster_parts = set(roster_name.split())
-                if not submitted_parts.intersection(roster_parts):
-                    roster_name_mismatch = True
+                try:
+                    from rapidfuzz import fuzz
+                    # token_set_ratio handles omitted middle names (e.g., 'Tinashe Moyo' vs 'Tinashe Kudakwashe Moyo')
+                    # token_sort_ratio handles reordered names (e.g., 'Moyo Tinashe')
+                    similarity = max(
+                        fuzz.token_sort_ratio(submitted_name.lower(), roster_name.lower()),
+                        fuzz.token_set_ratio(submitted_name.lower(), roster_name.lower())
+                    )
+                    if similarity < NAME_SIMILARITY_THRESHOLD:
+                        # Name doesn't match roster sufficiently — block auto-verification
+                        roster_name_mismatch = True
+                        is_auto_verified = False
+                except ImportError:
+                    # Fallback: word intersection check if rapidfuzz not installed
+                    submitted_parts = set(submitted_name.lower().split())
+                    roster_parts = set(roster_name.lower().split())
+                    if not submitted_parts.intersection(roster_parts):
+                        roster_name_mismatch = True
+                        is_auto_verified = False
 
         user = User.objects.create_user(
             username=username,

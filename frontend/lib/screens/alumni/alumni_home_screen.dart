@@ -181,10 +181,53 @@ class _DashboardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final alumniProvider = Provider.of<AlumniProvider>(context);
+    final profile = alumniProvider.myProfile;
+    final percent = profile?.profileCompletenessPercent ?? 0;
+    final showCompletenessBanner = profile != null && percent < 100;
+
     return DefaultTabController(
       length: 6,
       child: Column(
         children: [
+          if (showCompletenessBanner)
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(
+                        title: const Text('My Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        backgroundColor: AppColors.primaryNavy,
+                        foregroundColor: Colors.white,
+                      ),
+                      body: const ProfileViewEditScreen(),
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentGold.withOpacity(0.14),
+                  border: const Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.pie_chart_outline_rounded, size: 16, color: AppColors.accentGold),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Profile is $percent% complete. Tap to complete your skills & career for AI matching.',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryNavy),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.primaryNavy),
+                  ],
+                ),
+              ),
+            ),
           Container(
             color: Colors.white,
             child: const TabBar(

@@ -95,7 +95,7 @@ def _fallback_keyword_extraction(text: str) -> dict:
     for line in lines:
         stripped = line.strip()
         if stripped and len(stripped) > 3:
-            title = stripped[:250]
+            title = stripped[:150]
             break
 
     # Common tech skills to detect
@@ -149,28 +149,84 @@ def _fallback_keyword_extraction(text: str) -> dict:
 
 
 # ============================
+# SKILL NORMALIZATION MAP
+# ============================
+
+SKILL_ALIASES = {
+    'python 3': 'python', 'python3': 'python',
+    'node': 'node.js', 'nodejs': 'node.js',
+    'js': 'javascript', 'ts': 'typescript',
+    'postgres': 'postgresql', 'psql': 'postgresql',
+    'mongo': 'mongodb',
+    'react.js': 'react', 'reactjs': 'react',
+    'vue.js': 'vue', 'vuejs': 'vue',
+    'angular.js': 'angular', 'angularjs': 'angular',
+    'dotnet': '.net', 'dot net': '.net',
+    'k8s': 'kubernetes',
+    'ml': 'machine learning',
+    'ai': 'artificial intelligence',
+    'rest': 'rest api', 'restful': 'rest api',
+    'ci/cd': 'devops', 'cicd': 'devops',
+    'gcp': 'google cloud',
+}
+
+
+def _normalize_skill(skill: str) -> str:
+    """Normalize a skill string to a canonical form."""
+    s = skill.strip().lower()
+    return SKILL_ALIASES.get(s, s)
+
+
+def _skills_fuzzy_match(skill_a: str, skill_b: str, threshold: int = 85) -> bool:
+    """True if two skill strings are fuzzy-similar above threshold."""
+    try:
+        from rapidfuzz import fuzz
+        return fuzz.token_sort_ratio(skill_a, skill_b) >= threshold
+    except ImportError:
+        return skill_a == skill_b
+
+
+def _skills_overlap(job_skills: set, alumnus_skills: set) -> list:
+    """Return list of job skills that fuzzy-match any alumnus skill."""
+    matched = []
+    for js in job_skills:
+        for als in alumnus_skills:
+            if _skills_fuzzy_match(js, als):
+                matched.append(als)
+                break
+    return matched
+
+
+# ============================
 # ALUMNI-JOB MATCHING ENGINE
 # ============================
 
 def match_alumni_to_job(job) -> list:
     """
-    Scores all verified alumni against a job vacancy based on:
-    - Skills overlap (60% weight)
+    Scores all verified, opportunity-open alumni against a job vacancy based on:
+    - Skills overlap with fuzzy normalization (60% weight)
     - Industry sector match (20% weight)
     - Experience level compatibility (20% weight)
 
-    Returns a list of (alumnus_profile, score, skills_overlap, reasons) tuples
-    sorted by score descending, filtered to score >= 20.
+    Returns a list of match dicts sorted by score descending, filtered to score >= 20.
+    Only includes alumni who have is_open_to_opportunities=True (if the field exists).
     """
     from alumni.models import AlumniProfile
     from careers.models import CareerRecord
 
-    job_skills = set(s.strip().lower() for s in job.required_skills.split(',') if s.strip())
+    job_skills = set(_normalize_skill(s) for s in job.required_skills.split(',') if s.strip())
     job_industry = job.industry_sector.strip().lower() if job.industry_sector else ''
 
-    verified_alumni = AlumniProfile.objects.filter(
-        user__is_verified=True
-    ).select_related('user').prefetch_related('career_records')
+    # Respect the opt-in/opt-out flag (gracefully handle if field doesn't exist yet)
+    try:
+        verified_alumni = AlumniProfile.objects.filter(
+            user__is_verified=True,
+            is_open_to_opportunities=True,
+        ).select_related('user').prefetch_related('career_records')
+    except Exception:
+        verified_alumni = AlumniProfile.objects.filter(
+            user__is_verified=True
+        ).select_related('user').prefetch_related('career_records')
 
     matches = []
 
@@ -179,16 +235,17 @@ def match_alumni_to_job(job) -> list:
         reasons = []
         overlapping_skills = []
 
-        # 1. Skills overlap (60% weight)
-        alumnus_skills = set(s.strip().lower() for s in alumnus.skills.split(',') if s.strip()) if alumnus.skills else set()
+        # 1. Skills overlap with fuzzy normalization (60% weight)
+        raw_profile_skills = alumnus.skills.split(',') if alumnus.skills else []
+        alumnus_skills = set(_normalize_skill(s) for s in raw_profile_skills if s.strip())
 
         # Also include skills from career records
         for career in alumnus.career_records.all():
             if career.skills_used:
-                alumnus_skills.update(s.strip().lower() for s in career.skills_used.split(',') if s.strip())
+                alumnus_skills.update(_normalize_skill(s) for s in career.skills_used.split(',') if s.strip())
 
         if job_skills and alumnus_skills:
-            overlap = job_skills.intersection(alumnus_skills)
+            overlap = _skills_overlap(job_skills, alumnus_skills)
             if overlap:
                 overlap_ratio = len(overlap) / len(job_skills)
                 skills_score = min(overlap_ratio * 60, 60)

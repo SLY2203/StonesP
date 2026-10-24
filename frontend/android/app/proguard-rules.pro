@@ -1,0 +1,4 @@
+-keep class com.example.msu_dcs_alumni.** { *; }
+-keep class io.flutter.** { *; }
+-keep class io.flutter.plugins.** { *; }
+-dontwarn io.flutter.**

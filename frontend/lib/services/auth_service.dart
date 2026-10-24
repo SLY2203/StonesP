@@ -62,6 +62,12 @@ class AuthService {
     return UserModel.fromJson(response['user']);
   }
 
+  Future<Map<String, dynamic>> lookupGraduate(String registrationNumber) async {
+    final reg = registrationNumber.trim().toUpperCase();
+    final response = await _client.get('auth/lookup-graduate/?reg_number=$reg', includeAuth: false);
+    return response as Map<String, dynamic>;
+  }
+
   Future<UserModel?> getSavedUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();

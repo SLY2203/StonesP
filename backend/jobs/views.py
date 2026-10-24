@@ -118,8 +118,10 @@ class PublishJobAndMatchView(APIView):
         # Run matching engine
         matches = match_alumni_to_job(job)
 
-        # Save match records
+        # Save match records & proactively notify each matched alumnus
+        from communications.models import InAppNotification
         created_count = 0
+        notifications = []
         for match_data in matches:
             _, created = JobMatch.objects.update_or_create(
                 job=job,
@@ -133,8 +135,29 @@ class PublishJobAndMatchView(APIView):
             if created:
                 created_count += 1
 
+            notif_title = f"🎯 New Job Match: {job.title}"
+            if len(notif_title) > 220:
+                notif_title = notif_title[:217] + "..."
+
+            # Create in-app notification for the matched alumnus
+            notifications.append(InAppNotification(
+                user=match_data['alumnus'].user,
+                title=notif_title,
+                message=(
+                    f"You have a {match_data['score']:.0f}% match for a "
+                    f"{job.get_experience_level_display()} role at {job.company or 'a hiring company'}. "
+                    f"Skills overlap: {match_data['skills_overlap'] or 'see details'}."
+                ),
+                category='JOB_MATCH',
+                reference_id=str(job.id),
+                action_url=f'/jobs/matched/{job.id}/',
+            ))
+
+        if notifications:
+            InAppNotification.objects.bulk_create(notifications, ignore_conflicts=True)
+
         return Response({
-            'message': f"Job published and {created_count} alumni matched.",
+            'message': f"Job published, {created_count} alumni matched and notified.",
             'job_id': job.id,
             'total_matches': len(matches),
             'top_matches': [
@@ -146,6 +169,7 @@ class PublishJobAndMatchView(APIView):
                 for m in matches[:10]
             ],
         }, status=status.HTTP_200_OK)
+
 
 
 class JobMatchListView(generics.ListAPIView):

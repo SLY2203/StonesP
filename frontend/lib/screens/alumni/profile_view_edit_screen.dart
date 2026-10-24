@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
+import '../../models/profile_model.dart';
 import '../../providers/alumni_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -26,6 +27,7 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
     final skillsController = TextEditingController(text: profile.skills ?? '');
     final mentorshipAreasController = TextEditingController(text: profile.mentorshipAreas ?? '');
     bool isAvailableForMentorship = profile.isAvailableForMentorship;
+    bool isOpenToOpportunities = profile.isOpenToOpportunities;
 
     showModalBottomSheet(
       context: context,
@@ -144,6 +146,35 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
                 ),
                 const SizedBox(height: 14),
 
+                // Open to Opportunities Switch
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Open to Job Opportunities',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                    ),
+                    subtitle: const Text(
+                      'Allow DCS AI job matching to recommend your profile for department vacancy alerts',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    activeColor: AppColors.success,
+                    value: isOpenToOpportunities,
+                    onChanged: (val) {
+                      setModalState(() {
+                        isOpenToOpportunities = val;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+
                 CustomTextField(
                   controller: linkedinController,
                   label: 'LinkedIn Profile URL',
@@ -178,6 +209,7 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
                       'skills': skillsController.text.trim(),
                       'is_available_for_mentorship': isAvailableForMentorship,
                       'mentorship_areas': mentorshipAreasController.text.trim(),
+                      'is_open_to_opportunities': isOpenToOpportunities,
                     });
                     if (mounted && success) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,6 +306,22 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
                         ),
                       ),
+                      Chip(
+                        backgroundColor: (profile.isOpenToOpportunities ? AppColors.success : AppColors.textMuted).withOpacity(0.12),
+                        avatar: Icon(
+                          profile.isOpenToOpportunities ? Icons.work_outline : Icons.work_off_outlined,
+                          size: 14,
+                          color: profile.isOpenToOpportunities ? AppColors.success : AppColors.textMuted,
+                        ),
+                        label: Text(
+                          profile.isOpenToOpportunities ? 'Open to Opportunities' : 'Not Looking',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: profile.isOpenToOpportunities ? AppColors.success : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -288,6 +336,10 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Profile Completeness Card (Recommendation 1.2)
+            _buildProfileCompletenessCard(profile),
             const SizedBox(height: 16),
 
             // Technical Skills & Competencies Card (Suggestion 1)
@@ -484,6 +536,123 @@ class _ProfileViewEditScreenState extends State<ProfileViewEditScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildProfileCompletenessCard(AlumniProfileModel profile) {
+    final percent = profile.profileCompletenessPercent;
+    final isComplete = percent >= 100;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isComplete ? AppColors.success.withOpacity(0.5) : AppColors.accentGold.withOpacity(0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isComplete ? Icons.verified_rounded : Icons.pie_chart_outline_rounded,
+                    size: 20,
+                    color: isComplete ? AppColors.success : AppColors.accentGold,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Profile Completeness',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isComplete ? AppColors.success : AppColors.accentGold).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$percent%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isComplete ? AppColors.success : AppColors.primaryNavy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: (percent / 100.0).clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: AppColors.surfaceElevated,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isComplete ? AppColors.success : AppColors.accentGold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isComplete
+                ? 'Your profile is 100% complete! You have maximum visibility for DCS AI job matches.'
+                : 'Complete your bio, skills, LinkedIn, career timeline, and tracer survey to maximize AI job matching accuracy.',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          if (!isComplete) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildCompletenessChip('Bio', (profile.bio ?? '').isNotEmpty),
+                _buildCompletenessChip('Skills', (profile.skills ?? '').isNotEmpty),
+                _buildCompletenessChip('LinkedIn', (profile.linkedinUrl ?? '').isNotEmpty),
+                _buildCompletenessChip('Career Records', profile.careerRecords.isNotEmpty),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletenessChip(String label, bool isDone) {
+    return Chip(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      avatar: Icon(
+        isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+        size: 14,
+        color: isDone ? AppColors.success : AppColors.textMuted,
+      ),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: isDone ? AppColors.success : AppColors.textSecondary,
+          fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      backgroundColor: isDone ? AppColors.successBg : AppColors.surfaceElevated,
     );
   }
 }

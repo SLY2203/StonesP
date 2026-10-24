@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import User
-from alumni.models import AlumniProfile
+from alumni.models import AlumniProfile, GraduationRoster
 from careers.models import CareerRecord
 from communications.models import Communication, RSVP
 
@@ -70,6 +70,12 @@ class MSUDCSAlumniAPITests(TestCase):
 
     def test_alumni_registration(self):
         """Test that an alumnus can register and starts as unverified."""
+        GraduationRoster.objects.create(
+            registration_number='R219900K',
+            full_name='Mismatched Roster Name',
+            graduation_year=2023,
+            programme='BSc Hons Information Technology',
+        )
         payload = {
             'email': 'new.alumnus@alumni.msu.ac.zw',
             'password': 'StrongPassword123',

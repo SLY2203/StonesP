@@ -31,16 +31,28 @@ class ReportSummaryView(APIView):
     """
     Returns structured analytical data for the department staff reporting dashboard.
     Supports optional query params: 'graduation_year' (int) and 'programme' (str).
+    Results are cached for 5 minutes to prevent heavy aggregation queries on every load.
+    Cache is invalidated automatically after TTL or when explicitly cleared.
     """
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):
-        year = request.query_params.get('graduation_year')
-        programme = request.query_params.get('programme')
+        from django.core.cache import cache
 
+        year = request.query_params.get('graduation_year')
+        programme = request.query_params.get('programme', '')
         grad_year = int(year) if (year and year.isdigit()) else None
-        data = AlumniReportService.get_summary_data(year=grad_year, programme=programme)
+
+        # Build a cache key that accounts for filter params
+        cache_key = f"alumni_report_summary_{grad_year or 'all'}_{programme or 'all'}"
+
+        data = cache.get(cache_key)
+        if data is None:
+            data = AlumniReportService.get_summary_data(year=grad_year, programme=programme or None)
+            cache.set(cache_key, data, timeout=300)  # 5-minute TTL
+
         return Response(data, status=status.HTTP_200_OK)
+
 
 class ReportExportCSVView(APIView):
     """

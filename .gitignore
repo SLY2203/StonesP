@@ -24,3 +24,6 @@ jdk17/
 jdk17.zip
 .venv/
 *.apk
+backend/generated_reports/
+frontend/android/build/
+frontend/android/.gradle/

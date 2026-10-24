@@ -57,7 +57,13 @@ class AlumniProfile(models.Model):
         default='',
         help_text="Mentorship areas (e.g. Career Advice, CV Review, Software Engineering, Postgraduate Research)"
     )
-    
+
+    # Recommendation: Job matching opt-in / opt-out
+    is_open_to_opportunities = models.BooleanField(
+        default=True,
+        help_text="Whether this alumnus should appear in AI job-matching results"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -78,6 +84,24 @@ class AlumniProfile(models.Model):
         if not self.skills:
             return []
         return [s.strip() for s in self.skills.split(',') if s.strip()]
+
+    @property
+    def profile_completeness_percent(self) -> int:
+        """
+        Returns a 0-100 integer score reflecting how complete this alumni profile is.
+        Used on the frontend to show a progress prompt card.
+        """
+        fields = [
+            bool(self.bio and len(self.bio.strip()) > 20),
+            bool(self.skills and len(self.skills.strip()) > 0),
+            bool(self.linkedin_url),
+            bool(self.github_url),
+            bool(self.phone_number),
+            bool(self.career_records.exists()),
+            hasattr(self, 'tracer_survey') and self.tracer_survey.is_complete,
+        ]
+        filled = sum(1 for f in fields if f)
+        return int((filled / len(fields)) * 100)
 
 
 class GraduationRoster(models.Model):

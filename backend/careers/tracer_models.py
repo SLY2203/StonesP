@@ -136,3 +136,32 @@ class TracerSurvey(models.Model):
 
     def __str__(self):
         return f"Tracer Survey: {self.alumnus.user.get_full_name()} - {'Complete' if self.is_complete else 'Incomplete'}"
+
+    def auto_calculate_months_to_first_job(self) -> None:
+        """
+        Recommendation: Auto-calculate months_to_first_job from the alumnus's
+        graduation_year and their earliest CareerRecord start_date.
+        Only fills in the value if not already manually set.
+        """
+        if self.months_to_first_job is not None:
+            return  # Already set manually — don't override
+
+        grad_year = self.alumnus.graduation_year
+        from careers.models import CareerRecord
+        earliest_career = (
+            CareerRecord.objects.filter(alumnus=self.alumnus, start_date__isnull=False)
+            .order_by('start_date')
+            .first()
+        )
+        if earliest_career and earliest_career.start_date:
+            import datetime
+            # Approximate graduation as July 1st of the graduation year
+            grad_date = datetime.date(grad_year, 7, 1)
+            delta_months = (
+                (earliest_career.start_date.year - grad_date.year) * 12
+                + (earliest_career.start_date.month - grad_date.month)
+            )
+            if delta_months >= 0:
+                self.months_to_first_job = delta_months
+                self.save(update_fields=['months_to_first_job'])
+

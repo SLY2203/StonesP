@@ -188,16 +188,25 @@ class AlumniReportService:
             })
         cohort_trends.reverse()
 
-        # 5. Tracer Survey Summary
+        # 5. Tracer Survey Summary with completion tracking
         tracer_qs = TracerSurvey.objects.filter(alumnus__in=profiles_qs)
         tracer_total = tracer_qs.count()
+        complete_total = tracer_qs.filter(is_complete=True).count()
+        eligible_alumni = verified_count  # only verified alumni are expected to complete it
+        non_respondents = max(0, eligible_alumni - tracer_total)
+        completion_rate = round((complete_total / eligible_alumni) * 100, 1) if eligible_alumni > 0 else 0.0
+
         tracer_summary = {
             'total_responses': tracer_total,
+            'complete_responses': complete_total,
+            'non_respondent_count': non_respondents,
+            'completion_rate': completion_rate,
             'avg_career_satisfaction': round(tracer_qs.aggregate(avg=Avg('career_satisfaction'))['avg'] or 0, 1),
             'avg_curriculum_satisfaction': round(tracer_qs.aggregate(avg=Avg('curriculum_satisfaction'))['avg'] or 0, 1),
             'degree_relevance': list(tracer_qs.values('degree_relevance').annotate(count=Count('id')).order_by('-count')),
             'salary_bands': list(tracer_qs.values('current_salary_band').annotate(count=Count('id')).order_by('-count')),
         }
+
 
         return {
             'filters': {'graduation_year': year, 'programme': programme},

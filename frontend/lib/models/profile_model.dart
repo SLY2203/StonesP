@@ -69,6 +69,8 @@ class AlumniProfileModel {
   final List<String> skillsList;
   final bool isAvailableForMentorship;
   final String? mentorshipAreas;
+  final bool isOpenToOpportunities;
+  final int profileCompletenessPercent;
   final String? createdAt;
   final String? updatedAt;
 
@@ -93,6 +95,8 @@ class AlumniProfileModel {
     this.skillsList = const [],
     this.isAvailableForMentorship = false,
     this.mentorshipAreas,
+    this.isOpenToOpportunities = true,
+    this.profileCompletenessPercent = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -133,6 +137,8 @@ class AlumniProfileModel {
       skillsList: parsedSkills,
       isAvailableForMentorship: json['is_available_for_mentorship'] ?? false,
       mentorshipAreas: json['mentorship_areas'],
+      isOpenToOpportunities: json['is_open_to_opportunities'] ?? true,
+      profileCompletenessPercent: json['profile_completeness_percent'] ?? 0,
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
     );

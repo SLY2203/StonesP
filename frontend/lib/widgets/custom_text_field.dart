@@ -11,6 +11,8 @@ class CustomTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final int maxLines;
   final bool readOnly;
+  final bool enabled;
+  final TextCapitalization textCapitalization;
   final VoidCallback? onTap;
 
   const CustomTextField({
@@ -24,6 +26,8 @@ class CustomTextField extends StatefulWidget {
     this.validator,
     this.maxLines = 1,
     this.readOnly = false,
+    this.enabled = true,
+    this.textCapitalization = TextCapitalization.none,
     this.onTap,
   });
 
@@ -54,6 +58,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
           keyboardType: widget.keyboardType,
           maxLines: widget.isPassword ? 1 : widget.maxLines,
           readOnly: widget.readOnly,
+          enabled: widget.enabled,
+          textCapitalization: widget.textCapitalization,
           onTap: widget.onTap,
           validator: widget.validator,
           style: const TextStyle(

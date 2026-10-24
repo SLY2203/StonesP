@@ -98,12 +98,51 @@ class ApiClient {
     return headers;
   }
 
+  bool _isRefreshing = false;
+
+  Future<bool> _tryRefreshToken() async {
+    if (_refreshToken == null || _refreshToken!.isEmpty || _isRefreshing) {
+      return false;
+    }
+    _isRefreshing = true;
+    try {
+      final refreshUri = Uri.parse('$_baseUrl/auth/token/refresh/');
+      final res = await http.post(
+        refreshUri,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({'refresh': _refreshToken}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        final newAccess = data['access'];
+        final newRefresh = data['refresh'];
+        if (newAccess != null) {
+          await saveTokens(access: newAccess, refresh: newRefresh);
+          _isRefreshing = false;
+          return true;
+        }
+      }
+    } catch (_) {}
+    _isRefreshing = false;
+    return false;
+  }
+
   Future<dynamic> get(String endpoint, {Map<String, dynamic>? queryParams, bool includeAuth = true}) async {
     Uri uri = _buildUri(endpoint, queryParams);
     try {
       final response = await http
           .get(uri, headers: _getHeaders(includeAuth: includeAuth))
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401 && includeAuth && !endpoint.contains('auth/')) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          final retryRes = await http
+              .get(uri, headers: _getHeaders(includeAuth: includeAuth))
+              .timeout(const Duration(seconds: 15));
+          return _processResponse(retryRes);
+        }
+      }
       return _processResponse(response);
     } on http.ClientException {
       throw ApiException(message: "Cannot connect to DCS Alumni server at $_baseUrl. Please check connection.");
@@ -145,6 +184,19 @@ class ApiClient {
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401 && includeAuth && !endpoint.contains('auth/')) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          final retryRes = await http
+              .post(
+                uri,
+                headers: _getHeaders(includeAuth: includeAuth),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(const Duration(seconds: 15));
+          return _processResponse(retryRes);
+        }
+      }
       return _processResponse(response);
     } on http.ClientException {
       throw ApiException(message: "Cannot reach backend server. Check that Django API is running.");
@@ -164,6 +216,19 @@ class ApiClient {
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401 && includeAuth && !endpoint.contains('auth/')) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          final retryRes = await http
+              .put(
+                uri,
+                headers: _getHeaders(includeAuth: includeAuth),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(const Duration(seconds: 15));
+          return _processResponse(retryRes);
+        }
+      }
       return _processResponse(response);
     } catch (e) {
       if (e is ApiException) rethrow;
@@ -181,6 +246,19 @@ class ApiClient {
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401 && includeAuth && !endpoint.contains('auth/')) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          final retryRes = await http
+              .patch(
+                uri,
+                headers: _getHeaders(includeAuth: includeAuth),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(const Duration(seconds: 15));
+          return _processResponse(retryRes);
+        }
+      }
       return _processResponse(response);
     } catch (e) {
       if (e is ApiException) rethrow;
@@ -194,6 +272,15 @@ class ApiClient {
       final response = await http
           .delete(uri, headers: _getHeaders(includeAuth: includeAuth))
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401 && includeAuth && !endpoint.contains('auth/')) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          final retryRes = await http
+              .delete(uri, headers: _getHeaders(includeAuth: includeAuth))
+              .timeout(const Duration(seconds: 15));
+          return _processResponse(retryRes);
+        }
+      }
       return _processResponse(response);
     } catch (e) {
       if (e is ApiException) rethrow;

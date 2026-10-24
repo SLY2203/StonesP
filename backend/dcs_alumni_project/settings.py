@@ -196,3 +196,10 @@ STORAGES = {
     },
 }
 
+# Rate Limiting (django-ratelimit)
+# Uses Django's default cache (in-memory by default; configure Redis for production)
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_ENABLE = True  # Set to False in test environments if needed
+
+# Gemini AI API Key for job advert extraction
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')

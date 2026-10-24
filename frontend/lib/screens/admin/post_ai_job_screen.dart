@@ -116,6 +116,7 @@ class _PostAiJobScreenState extends State<PostAiJobScreen> {
         }
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('✨ AI extraction complete! Please review and refine the fields below.'),
@@ -123,6 +124,7 @@ class _PostAiJobScreenState extends State<PostAiJobScreen> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Extraction failed: $e'),
@@ -148,6 +150,7 @@ class _PostAiJobScreenState extends State<PostAiJobScreen> {
     setState(() => _isPublishing = true);
     try {
       final res = await _jobService.publishJobAndMatch(_draftJobId!);
+      if (!mounted) return;
       setState(() => _matchResults = res);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,6 +160,7 @@ class _PostAiJobScreenState extends State<PostAiJobScreen> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Publishing failed: $e'),

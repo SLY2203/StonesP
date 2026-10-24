@@ -11,6 +11,7 @@ class AlumniProfileSerializer(serializers.ModelSerializer):
     current_job = serializers.SerializerMethodField()
     career_records = CareerRecordSerializer(many=True, read_only=True)
     skills_list = serializers.ListField(child=serializers.CharField(), read_only=True)
+    profile_completeness_percent = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = AlumniProfile
@@ -21,9 +22,11 @@ class AlumniProfileSerializer(serializers.ModelSerializer):
             'linkedin_url', 'github_url', 'profile_photo',
             'skills', 'skills_list',
             'is_available_for_mentorship', 'mentorship_areas',
+            'is_open_to_opportunities',
+            'profile_completeness_percent',
             'current_job', 'career_records', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'user', 'registration_number', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'registration_number', 'profile_completeness_percent', 'created_at', 'updated_at']
 
     def get_current_job(self, obj):
         current_career = obj.career_records.filter(is_current=True).first()
