@@ -480,7 +480,7 @@ class _AlumniDirectoryScreenState extends State<AlumniDirectoryScreen> with Sing
                             decoration: const InputDecoration(labelText: 'Degree Class'),
                             items: ['First Class', '2.1 (Upper Second)', '2.2 (Lower Second)', 'Pass', 'Distinction', 'Merit'].map((c) {
                               return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
-                            }).toList>,
+                            }).toList(),
                             onChanged: (val) {
                               if (val != null) setDialogState(() => selectedClass = val);
                             },

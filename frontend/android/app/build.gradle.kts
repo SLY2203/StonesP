@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.msu_dcs_alumni"
         minSdk = flutter.minSdkVersion
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.2.1"
+        versionCode = 5
+        versionName = "1.2.2"
     }
 
     signingConfigs {
