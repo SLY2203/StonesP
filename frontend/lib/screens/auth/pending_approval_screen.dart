@@ -90,8 +90,8 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                       children: [
                         Text('Alumnus: ${user?.fullName ?? 'Graduate'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryNavy)),
                         Text('Email: ${user?.email ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                        if (user?.profile?.registrationNumber != null)
-                          Text('Registration #: ${user!.profile!.registrationNumber}', style: const TextStyle(fontSize: 12, color: AppColors.primaryNavy, fontWeight: FontWeight.w600)),
+                        if (user?.username != null && user!.username.isNotEmpty)
+                          Text('Registration / Account: ${user.username}', style: const TextStyle(fontSize: 12, color: AppColors.primaryNavy, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -125,7 +125,7 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                   Navigator.pop(ctx);
                   setState(() => _isSendingAlert = true);
                   final success = await auth.requestVerification(
-                    registrationNumber: user?.profile?.registrationNumber ?? 'PENDING',
+                    registrationNumber: (user?.username != null && user!.username.isNotEmpty) ? user.username : 'PENDING',
                     fullName: user?.fullName,
                     email: user?.email,
                     message: noteController.text.trim(),
