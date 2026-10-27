@@ -191,3 +191,48 @@ class MentorshipRequest(models.Model):
     def __str__(self):
         return f"Mentorship: {self.mentee.user.get_full_name()} -> {self.mentor.user.get_full_name()} [{self.status}]"
 
+
+class VerificationRequest(models.Model):
+    """
+    Allows alumni (or graduates requesting verification) to notify the Admin
+    to review and verify their account and credentials.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Review'
+        APPROVED = 'APPROVED', 'Approved & Verified'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verification_requests'
+    )
+    registration_number = models.CharField(
+        max_length=30,
+        help_text="MSU student registration number (e.g. R213372A)"
+    )
+    full_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    graduation_year = models.PositiveIntegerField(null=True, blank=True)
+    programme = models.CharField(max_length=150, blank=True, default='BSc Hons Computer Science')
+    phone_number = models.CharField(max_length=30, blank=True, default='')
+    notes = models.TextField(blank=True, default='', help_text="Alumnus note or message for the administrator")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    admin_notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['registration_number']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"Verification Request: {self.full_name} ({self.registration_number}) - [{self.status}]"
+
+

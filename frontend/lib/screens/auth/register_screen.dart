@@ -87,6 +87,133 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  bool _alertSent = false;
+
+  void _showNotifyAdminDialog() {
+    final reg = _regNumController.text.trim().toUpperCase();
+    final nameCtrl = TextEditingController(text: '${_firstNameController.text} ${_lastNameController.text}'.trim());
+    final emailCtrl = TextEditingController(text: _emailController.text.trim());
+    final noteCtrl = TextEditingController();
+    int selectedGradYear = _selectedGradYear;
+    String selectedProgramme = _selectedProgramme;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentGold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.notifications_active_rounded, color: AppColors.primaryNavy, size: 22),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Notify Admin to Verify', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'If your registration number is not yet recognized on the roster, send an alert to the Department Administrator to verify your graduation records.',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: TextEditingController(text: reg),
+                      readOnly: true,
+                      decoration: const InputDecoration(labelText: 'Registration Number', prefixIcon: Icon(Icons.badge_outlined, size: 18)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Full Name *', hintText: 'e.g. Michael Sowa', prefixIcon: Icon(Icons.person_outline, size: 18)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email Address *', hintText: 'e.g. msowa@gmail.com', prefixIcon: Icon(Icons.email_outlined, size: 18)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: noteCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Message for Admin (optional)',
+                        hintText: 'e.g. Graduated BSc Hons Computer Science in 2023.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryNavy, foregroundColor: Colors.white),
+                icon: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.send_rounded, size: 16),
+                label: Text(isSubmitting ? 'Sending...' : 'Send Request'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter your name and email address.')),
+                          );
+                          return;
+                        }
+                        setDialogState(() => isSubmitting = true);
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        final success = await auth.requestVerification(
+                          registrationNumber: reg,
+                          fullName: nameCtrl.text.trim(),
+                          email: emailCtrl.text.trim(),
+                          graduationYear: selectedGradYear,
+                          programme: selectedProgramme,
+                          message: noteCtrl.text.trim(),
+                        );
+                        if (!mounted) return;
+                        Navigator.pop(ctx);
+                        if (success) {
+                          setState(() => _alertSent = true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Notification sent to Administrator for $reg! Staff will verify your record.'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(auth.errorMessage ?? 'Failed to send notification.'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _handleRegister() async {
     if (_verifiedRecord == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -285,21 +412,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: AppColors.error.withOpacity(0.3)),
                               ),
-                              child: Row(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.error_outline, color: AppColors.error, size: 18),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _lookupError!,
-                                      style: const TextStyle(fontSize: 12, color: AppColors.error),
-                                    ),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _lookupError!,
+                                          style: const TextStyle(fontSize: 12, color: AppColors.error),
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 10),
+                                  if (_alertSent)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.successBg,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.check_circle_rounded, size: 14, color: AppColors.success),
+                                          SizedBox(width: 6),
+                                          Text('Verification request sent to Administrator', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success)),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primaryNavy,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: const Icon(Icons.notifications_active_rounded, size: 15),
+                                      label: const Text('Notify Admin to Verify My Record', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: _showNotifyAdminDialog,
+                                    ),
                                 ],
                               ),
                             ),
                           ],
+
 
                           // Verified record card
                           if (_verifiedRecord != null) ...[

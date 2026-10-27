@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from .models import AlumniProfile, GraduationRoster, MentorshipRequest
+from .models import AlumniProfile, GraduationRoster, MentorshipRequest, VerificationRequest
 from .serializers import (
     AlumniProfileSerializer,
     AlumniDirectoryItemSerializer,
@@ -16,6 +16,7 @@ from .serializers import (
     MentorshipRequestSerializer,
     MentorshipResponseSerializer,
     AdminCreateAlumnusSerializer,
+    VerificationRequestSerializer,
 )
 from accounts.models import User
 from accounts.permissions import IsAdminUserRole
@@ -358,4 +359,134 @@ class AutoVerifyPendingAlumniView(APIView):
             'verified_alumni': verified_names,
             'remaining_pending': AlumniProfile.objects.filter(user__is_verified=False).count()
         }, status=status.HTTP_200_OK)
+
+
+class VerificationRequestCreateView(APIView):
+    """
+    Endpoint for alumni (either authenticated pending user or registering graduate)
+    to notify the Department Administrator to verify their account and graduate status.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from communications.models import InAppNotification
+
+        user = request.user if request.user.is_authenticated else None
+        data = request.data
+
+        reg = (data.get('registration_number') or '').strip().upper()
+        if user and not reg and hasattr(user, 'alumni_profile'):
+            reg = user.alumni_profile.registration_number.upper()
+
+        if not reg:
+            return Response({'registration_number': 'Registration number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        full_name = data.get('full_name') or (user.get_full_name() if user else '') or reg
+        email = data.get('email') or (user.email if user else '')
+        notes = data.get('notes') or data.get('message') or ''
+        grad_year = data.get('graduation_year')
+        programme = data.get('programme') or 'BSc Hons Computer Science'
+        phone = data.get('phone_number') or ''
+
+        # Create or update VerificationRequest
+        v_req, created = VerificationRequest.objects.get_or_create(
+            registration_number=reg,
+            status=VerificationRequest.Status.PENDING,
+            defaults={
+                'user': user,
+                'full_name': full_name,
+                'email': email,
+                'graduation_year': int(grad_year) if grad_year else None,
+                'programme': programme,
+                'phone_number': phone,
+                'notes': notes,
+            }
+        )
+        if not created:
+            v_req.notes = notes or v_req.notes
+            v_req.phone_number = phone or v_req.phone_number
+            if user:
+                v_req.user = user
+            v_req.save()
+
+        # Send in-app notification to all administrators
+        admin_users = User.objects.filter(role=User.UserRole.ADMIN)
+        for admin in admin_users:
+            InAppNotification.objects.create(
+                user=admin,
+                title=f"Verification Request: {full_name} ({reg})",
+                message=f"Alumnus {full_name} ({reg}) has requested account verification. Note: {notes or 'Please review and verify my record.'}",
+                category='SYSTEM',
+                reference_id=str(v_req.id),
+                action_url='/admin/alumni/verificationrequest/'
+            )
+
+        return Response({
+            'message': 'Verification request sent to Department Administrators. Staff have been alerted to review your record.',
+            'status': 'PENDING',
+            'registration_number': reg,
+            'request_id': v_req.id
+        }, status=status.HTTP_201_CREATED)
+
+
+class VerificationRequestListView(generics.ListAPIView):
+    """
+    Admin endpoint to view all pending / reviewed verification requests from alumni.
+    """
+    serializer_class = VerificationRequestSerializer
+    permission_classes = [IsAdminUserRole]
+
+    def get_queryset(self):
+        qs = VerificationRequest.objects.all()
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter.upper())
+        return qs
+
+
+class VerificationRequestApproveView(APIView):
+    """
+    Admin endpoint to approve and verify an alumnus request with 1 tap.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request, id):
+        from communications.models import InAppNotification
+        from django.utils import timezone
+
+        v_req = get_object_or_404(VerificationRequest, id=id)
+        v_req.status = VerificationRequest.Status.APPROVED
+        v_req.reviewed_at = timezone.now()
+        v_req.admin_notes = request.data.get('admin_notes', 'Approved by administrator.')
+        v_req.save()
+
+        # Ensure graduation roster entry
+        GraduationRoster.objects.update_or_create(
+            registration_number=v_req.registration_number.upper(),
+            defaults={
+                'full_name': v_req.full_name,
+                'graduation_year': v_req.graduation_year or 2024,
+                'programme': v_req.programme or 'BSc Hons Computer Science',
+                'degree_class': 'Pass',
+            }
+        )
+
+        # If user exists, mark verified
+        if v_req.user:
+            v_req.user.is_verified = True
+            v_req.user.save()
+
+            InAppNotification.objects.create(
+                user=v_req.user,
+                title="Account Verified!",
+                message="Your alumni account has been verified by the Department of Computer Science. You now have full access.",
+                category='SYSTEM',
+                action_url='/home'
+            )
+
+        return Response({
+            'message': f"Verification request for {v_req.full_name} ({v_req.registration_number}) approved.",
+            'status': 'APPROVED'
+        }, status=status.HTTP_200_OK)
+
 

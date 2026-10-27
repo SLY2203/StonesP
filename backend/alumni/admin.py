@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import AlumniProfile, GraduationRoster, MentorshipRequest
+from .models import AlumniProfile, GraduationRoster, MentorshipRequest, VerificationRequest
 from careers.models import CareerRecord
 
 class CareerRecordInline(admin.TabularInline):
@@ -48,3 +48,38 @@ class MentorshipRequestAdmin(admin.ModelAdmin):
     def mentee_name(self, obj):
         return obj.mentee.user.get_full_name()
     mentee_name.short_description = 'Mentee'
+
+@admin.register(VerificationRequest)
+class VerificationRequestAdmin(admin.ModelAdmin):
+    list_display = ('registration_number', 'full_name', 'email', 'graduation_year', 'programme', 'status', 'created_at')
+    list_filter = ('status', 'graduation_year', 'programme', 'created_at')
+    search_fields = ('registration_number', 'full_name', 'email', 'notes')
+    actions = ['approve_verification_requests']
+
+    def approve_verification_requests(self, request, queryset):
+        from django.utils import timezone
+        count = 0
+        for req in queryset:
+            req.status = VerificationRequest.Status.APPROVED
+            req.reviewed_at = timezone.now()
+            req.save()
+
+            # Ensure graduation roster entry exists
+            GraduationRoster.objects.update_or_create(
+                registration_number=req.registration_number.upper(),
+                defaults={
+                    'full_name': req.full_name,
+                    'graduation_year': req.graduation_year or 2024,
+                    'programme': req.programme or 'BSc Hons Computer Science',
+                    'degree_class': 'Pass',
+                }
+            )
+
+            # If user exists, mark verified
+            if req.user:
+                req.user.is_verified = True
+                req.user.save()
+            count += 1
+        self.message_user(request, f"{count} verification request(s) approved and verified.")
+    approve_verification_requests.short_description = 'Approve & Verify Selected Requests'
+

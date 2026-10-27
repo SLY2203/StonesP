@@ -16,6 +16,8 @@ class PendingApprovalScreen extends StatefulWidget {
 
 class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
   bool _checking = false;
+  bool _alertSent = false;
+  bool _isSendingAlert = false;
 
   Future<void> _checkStatus() async {
     setState(() => _checking = true);
@@ -38,6 +40,129 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
         ),
       );
     }
+  }
+
+  void _showNotifyAdminDialog() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.currentUser;
+    final noteController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentGold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.notifications_active_rounded, color: AppColors.primaryNavy, size: 22),
+                ),
+                const SizedBox(width: 10),
+                const Text('Notify Administrator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryNavy)),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Send an urgent verification notification directly to the Department of Computer Science administrators.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Alumnus: ${user?.fullName ?? 'Graduate'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryNavy)),
+                        Text('Email: ${user?.email ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        if (user?.profile?.registrationNumber != null)
+                          Text('Registration #: ${user!.profile!.registrationNumber}', style: const TextStyle(fontSize: 12, color: AppColors.primaryNavy, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Optional message for Staff',
+                      hintText: 'e.g. Completed BSc Hons Computer Science in 2023. Kindly review and verify my profile.',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryNavy,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.send_rounded, size: 16),
+                label: const Text('Send Alert to Admin'),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  setState(() => _isSendingAlert = true);
+                  final success = await auth.requestVerification(
+                    registrationNumber: user?.profile?.registrationNumber ?? 'PENDING',
+                    fullName: user?.fullName,
+                    email: user?.email,
+                    message: noteController.text.trim(),
+                  );
+                  setState(() => _isSendingAlert = false);
+
+                  if (!mounted) return;
+                  if (success) {
+                    setState(() => _alertSent = true);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Expanded(child: Text('Verification alert sent! Department staff have been notified.')),
+                          ],
+                        ),
+                        backgroundColor: AppColors.success,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(auth.errorMessage ?? 'Failed to send alert. Please try again.'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _signOut() async {
@@ -142,17 +267,53 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    // 1. Primary Action: Notify Admin to Verify
+                    if (_alertSent) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.successBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Verification alert sent to Administrator. Staff will review and verify your account shortly.',
+                                style: TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ] else ...[
+                      CustomButton(
+                        text: 'Notify Admin to Verify',
+                        icon: Icons.notifications_active_rounded,
+                        isLoading: _isSendingAlert,
+                        onPressed: _showNotifyAdminDialog,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 2. Check Status Button
                     CustomButton(
                       text: 'Check Status Now',
                       icon: Icons.refresh_rounded,
+                      isOutlined: true,
                       isLoading: _checking,
                       onPressed: _checkStatus,
                     ),
                     const SizedBox(height: 12),
 
-                    CustomButton(
-                      text: 'Sign Out',
-                      isOutlined: true,
+                    // 3. Sign Out Button
+                    TextButton.icon(
+                      icon: const Icon(Icons.logout_rounded, size: 16, color: AppColors.textMuted),
+                      label: const Text('Sign Out', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                       onPressed: _signOut,
                     ),
                   ],

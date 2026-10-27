@@ -10,6 +10,9 @@ from .views import (
     GraduationRosterListView,
     GraduationRosterBatchUploadView,
     AutoVerifyPendingAlumniView,
+    VerificationRequestCreateView,
+    VerificationRequestListView,
+    VerificationRequestApproveView,
 )
 
 urlpatterns = [
@@ -19,6 +22,10 @@ urlpatterns = [
     path('directory/<int:id>/', AlumniDetailAdminView.as_view(), name='alumni_detail'),
     path('admin/add/', AdminCreateAlumnusView.as_view(), name='admin_create_alumnus'),
 
+    # Verification Requests (Alumni notifying admin to verify)
+    path('verification-requests/', VerificationRequestCreateView.as_view(), name='verification_request_create'),
+    path('verification-requests/list/', VerificationRequestListView.as_view(), name='verification_request_list'),
+    path('verification-requests/<int:id>/approve/', VerificationRequestApproveView.as_view(), name='verification_request_approve'),
 
     # Suggestion 3: Mentorship & Peer Networking
     path('mentors/', MentorDirectoryView.as_view(), name='mentor_directory'),
@@ -30,4 +37,5 @@ urlpatterns = [
     path('roster/batch/', GraduationRosterBatchUploadView.as_view(), name='graduation_roster_batch'),
     path('roster/auto-verify-pending/', AutoVerifyPendingAlumniView.as_view(), name='auto_verify_pending'),
 ]
+
 

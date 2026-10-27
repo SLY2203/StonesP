@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AlumniProfile, GraduationRoster, MentorshipRequest
+from .models import AlumniProfile, GraduationRoster, MentorshipRequest, VerificationRequest
 from accounts.serializers import UserSerializer
 from careers.serializers import CareerRecordSerializer
 
@@ -260,5 +260,17 @@ class AdminCreateAlumnusSerializer(serializers.Serializer):
                 )
 
             return profile
+
+
+class VerificationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VerificationRequest
+        fields = [
+            'id', 'user', 'registration_number', 'full_name',
+            'email', 'graduation_year', 'programme', 'phone_number',
+            'notes', 'status', 'admin_notes', 'created_at', 'reviewed_at'
+        ]
+        read_only_fields = ['id', 'user', 'status', 'admin_notes', 'created_at', 'reviewed_at']
+
 
 

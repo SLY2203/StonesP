@@ -106,6 +106,41 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> requestVerification({
+    required String registrationNumber,
+    String? fullName,
+    String? email,
+    int? graduationYear,
+    String? programme,
+    String? phoneNumber,
+    String? message,
+  }) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      await _authService.requestVerification(
+        registrationNumber: registrationNumber,
+        fullName: fullName,
+        email: email,
+        graduationYear: graduationYear,
+        programme: programme,
+        phoneNumber: phoneNumber,
+        message: message,
+      );
+      _setLoading(false);
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _setLoading(false);
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+
   Future<void> checkVerificationStatus() async {
     if (!isAuthenticated) return;
     try {

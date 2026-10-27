@@ -68,6 +68,31 @@ class AuthService {
     return response as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> requestVerification({
+    required String registrationNumber,
+    String? fullName,
+    String? email,
+    int? graduationYear,
+    String? programme,
+    String? phoneNumber,
+    String? message,
+  }) async {
+    final response = await _client.post(
+      'alumni/verification-requests/',
+      body: {
+        'registration_number': registrationNumber.trim().toUpperCase(),
+        if (fullName != null && fullName.isNotEmpty) 'full_name': fullName.trim(),
+        if (email != null && email.isNotEmpty) 'email': email.trim(),
+        if (graduationYear != null) 'graduation_year': graduationYear,
+        if (programme != null && programme.isNotEmpty) 'programme': programme,
+        if (phoneNumber != null && phoneNumber.isNotEmpty) 'phone_number': phoneNumber.trim(),
+        if (message != null && message.isNotEmpty) 'message': message.trim(),
+      },
+    );
+    return response as Map<String, dynamic>;
+  }
+
+
   Future<UserModel?> getSavedUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();

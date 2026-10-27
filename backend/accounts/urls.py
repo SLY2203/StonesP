@@ -7,6 +7,7 @@ from .views import (
     VerifyAlumniView,
     LookupGraduateView,
 )
+from alumni.views import VerificationRequestCreateView
 
 urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='auth_login'),
@@ -14,5 +15,7 @@ urlpatterns = [
     path('lookup-graduate/', LookupGraduateView.as_view(), name='lookup_graduate'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', CurrentUserView.as_view(), name='current_user'),
+    path('request-verification/', VerificationRequestCreateView.as_view(), name='auth_request_verification'),
     path('alumni/<int:user_id>/verify/', VerifyAlumniView.as_view(), name='verify_alumni'),
+
 ]
