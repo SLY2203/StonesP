@@ -133,5 +133,16 @@ class AlumniService {
     );
     return response as Map<String, dynamic>;
   }
+
+  Future<AlumniDirectoryItemModel> adminCreateAlumnus(Map<String, dynamic> data) async {
+    final response = await _client.post('alumni/admin/add/', body: data);
+    return AlumniDirectoryItemModel.fromJson(response);
+  }
+
+  Future<GraduationRosterModel> createRosterRecord(Map<String, dynamic> data) async {
+    final response = await _client.post('alumni/roster/', body: data);
+    return GraduationRosterModel.fromJson(response);
+  }
 }
+
 

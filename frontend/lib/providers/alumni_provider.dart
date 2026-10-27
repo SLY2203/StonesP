@@ -241,9 +241,44 @@ class AlumniProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> createAlumnus(Map<String, dynamic> data) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      final newAlumnus = await _alumniService.adminCreateAlumnus(data);
+      _directory.insert(0, newAlumnus);
+      _setLoading(false);
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _setLoading(false);
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> addRosterRecord(Map<String, dynamic> data) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      final newRec = await _alumniService.createRosterRecord(data);
+      _rosterRecords.insert(0, newRec);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _setLoading(false);
+      return false;
+    }
+  }
+
   void _setLoading(bool val) {
     _isLoading = val;
     notifyListeners();
   }
 }
+
 

@@ -160,3 +160,105 @@ class MentorshipResponseSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=['ACCEPTED', 'DECLINED', 'COMPLETED'])
     response_message = serializers.CharField(required=False, allow_blank=True)
 
+
+class AdminCreateAlumnusSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(required=False, default='MsuAlumni@2025', allow_blank=True)
+    registration_number = serializers.CharField(max_length=30)
+    graduation_year = serializers.IntegerField(min_value=1990, max_value=2050)
+    programme = serializers.ChoiceField(choices=AlumniProfile.PROGRAMME_CHOICES, default='BSc Hons Computer Science')
+    phone_number = serializers.CharField(max_length=25, required=False, allow_blank=True)
+    skills = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    bio = serializers.CharField(required=False, allow_blank=True)
+    is_verified = serializers.BooleanField(default=True)
+
+    # Optional initial career info
+    current_job_title = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    current_employer = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    employment_status = serializers.CharField(max_length=30, required=False, default='EMPLOYED', allow_blank=True)
+    industry_sector = serializers.CharField(max_length=100, required=False, default='Software & IT Services', allow_blank=True)
+
+    def validate_email(self, value):
+        from accounts.models import User
+        if User.objects.filter(email__iexact=value.strip()).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value.strip().lower()
+
+    def validate_registration_number(self, value):
+        reg = value.strip().upper()
+        if AlumniProfile.objects.filter(registration_number__iexact=reg).exists():
+            raise serializers.ValidationError(f"An alumnus with registration number '{reg}' is already registered.")
+        return reg
+
+    def create(self, validated_data):
+        import datetime
+        from django.db import transaction
+        from accounts.models import User
+        from careers.models import CareerRecord
+
+        with transaction.atomic():
+            reg_num = validated_data['registration_number'].strip().upper()
+            first_name = validated_data['first_name'].strip()
+            last_name = validated_data['last_name'].strip()
+            full_name = f"{first_name} {last_name}".strip()
+            grad_year = validated_data['graduation_year']
+            programme = validated_data.get('programme', 'BSc Hons Computer Science')
+            is_verified = validated_data.get('is_verified', True)
+
+            # Ensure consistent entry in official GraduationRoster
+            GraduationRoster.objects.update_or_create(
+                registration_number=reg_num,
+                defaults={
+                    'full_name': full_name,
+                    'graduation_year': grad_year,
+                    'programme': programme,
+                    'degree_class': 'Pass'
+                }
+            )
+
+            # Create User account
+            pwd = (validated_data.get('password') or '').strip()
+            if not pwd:
+                pwd = 'MsuAlumni@2025'
+            user = User(
+                email=validated_data['email'],
+                username=reg_num,
+                first_name=first_name,
+                last_name=last_name,
+                role=User.UserRole.ALUMNI,
+                is_verified=is_verified
+            )
+            user.set_password(pwd)
+            user.save()
+
+            # Create AlumniProfile
+            profile = AlumniProfile.objects.create(
+                user=user,
+                registration_number=reg_num,
+                graduation_year=grad_year,
+                programme=programme,
+                phone_number=validated_data.get('phone_number', ''),
+                skills=validated_data.get('skills', ''),
+                bio=validated_data.get('bio', ''),
+                is_available_for_mentorship=False
+            )
+
+            # Optional Career Record
+            job_title = (validated_data.get('current_job_title') or '').strip()
+            employer = (validated_data.get('current_employer') or '').strip()
+            if job_title or employer:
+                CareerRecord.objects.create(
+                    alumnus=profile,
+                    job_title=job_title or 'Graduate Trainee / Professional',
+                    employer=employer or 'Self-Employed / Independent',
+                    employment_status=validated_data.get('employment_status') or 'EMPLOYED',
+                    industry_sector=validated_data.get('industry_sector') or 'Software & IT Services',
+                    start_date=datetime.date(grad_year, 1, 1),
+                    is_current=True
+                )
+
+            return profile
+
+

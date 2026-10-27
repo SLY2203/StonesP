@@ -14,7 +14,8 @@ from .serializers import (
     GraduationRosterBatchUploadSerializer,
     MentorDirectorySerializer,
     MentorshipRequestSerializer,
-    MentorshipResponseSerializer
+    MentorshipResponseSerializer,
+    AdminCreateAlumnusSerializer,
 )
 from accounts.models import User
 from accounts.permissions import IsAdminUserRole
@@ -101,6 +102,21 @@ class AlumniDetailAdminView(generics.RetrieveAPIView):
     serializer_class = AlumniProfileSerializer
     permission_classes = [IsAdminUserRole]
     lookup_field = 'id'
+
+
+class AdminCreateAlumnusView(APIView):
+    """
+    Admin endpoint to directly add an alumnus profile, user account,
+    and optional career records into the database.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request):
+        serializer = AdminCreateAlumnusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response(AlumniDirectoryItemSerializer(profile).data, status=status.HTTP_201_CREATED)
+
 
 
 # ==============================================================================

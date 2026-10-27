@@ -3,6 +3,7 @@ from .views import (
     MyProfileView,
     AlumniDirectoryView,
     AlumniDetailAdminView,
+    AdminCreateAlumnusView,
     MentorDirectoryView,
     MentorshipRequestListCreateView,
     MentorshipRequestRespondView,
@@ -16,6 +17,8 @@ urlpatterns = [
     path('profile/me/', MyProfileView.as_view(), name='my_profile'),
     path('directory/', AlumniDirectoryView.as_view(), name='alumni_directory'),
     path('directory/<int:id>/', AlumniDetailAdminView.as_view(), name='alumni_detail'),
+    path('admin/add/', AdminCreateAlumnusView.as_view(), name='admin_create_alumnus'),
+
 
     # Suggestion 3: Mentorship & Peer Networking
     path('mentors/', MentorDirectoryView.as_view(), name='mentor_directory'),
