@@ -30,6 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLookingUp = false;
   Map<String, dynamic>? _verifiedRecord;
   String? _lookupError;
+  bool _isNotInRoster = false;
 
   @override
   void dispose() {
@@ -58,6 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLookingUp = true;
       _lookupError = null;
       _verifiedRecord = null;
+      _isNotInRoster = false;
     });
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -68,6 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (result != null && result['status'] == 'VERIFIED') {
       setState(() {
         _isLookingUp = false;
+        _isNotInRoster = false;
         _verifiedRecord = result;
         _firstNameController.text = result['first_name'] ?? '';
         _lastNameController.text = result['last_name'] ?? '';
@@ -79,11 +82,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _selectedProgramme = AppConstants.dcsProgrammes[0];
         }
       });
-    } else {
+    } else if (result != null && result['status'] == 'NOT_IN_ROSTER') {
       setState(() {
         _isLookingUp = false;
-        _lookupError = auth.errorMessage ?? 'Student registration number was not found in the DCS Graduation Database.';
+        _isNotInRoster = true;
+        _verifiedRecord = result;
+        _lookupError = null;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Department Administrator has been automatically notified about $reg.'),
+          backgroundColor: AppColors.accentGold,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      // If result is null or 404 from server, automatically alert admin and unlock registration
+      setState(() {
+        _isLookingUp = false;
+        _isNotInRoster = true;
+        _verifiedRecord = {'status': 'NOT_IN_ROSTER', 'registration_number': reg};
+        _lookupError = null;
+      });
+      auth.requestVerification(
+        registrationNumber: reg,
+        message: 'Student attempted registration on mobile app; registration number was not found in graduation roster.',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Department Administrator has been automatically notified about $reg.'),
+          backgroundColor: AppColors.accentGold,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -187,7 +218,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           programme: selectedProgramme,
                           message: noteCtrl.text.trim(),
                         );
-                        if (!mounted) return;
+                        if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                         if (success) {
                           setState(() => _alertSent = true);
@@ -225,6 +256,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (_isNotInRoster) {
+      if (_firstNameController.text.trim().isEmpty || _lastNameController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter your first and last name.'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        return;
+      }
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -251,6 +294,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         Navigator.pop(context);
       } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account submitted! Administrator has been alerted to review and verify your record.'),
+            backgroundColor: AppColors.primaryNavy,
+            duration: Duration(seconds: 4),
+          ),
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
@@ -393,6 +443,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           setState(() {
                                             _verifiedRecord = null;
                                             _lookupError = null;
+                                            _isNotInRoster = false;
                                             _firstNameController.clear();
                                             _lastNameController.clear();
                                           });
@@ -462,9 +513,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
 
+                          // Not in roster auto-notification card
+                          if (_verifiedRecord != null && _isNotInRoster) ...[
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentGold.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.accentGold.withOpacity(0.6)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryNavy,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 16),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      const Expanded(
+                                        child: Text(
+                                          'Administrator Automatically Notified',
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Registration number \'${_regNumController.text.trim().toUpperCase()}\' was not found in the DCS graduation database.\n\nAn alert has been dispatched directly to the Department Administrator for record verification. Please complete your details below so your account can be submitted for review.',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.4),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           // Verified record card
-                          if (_verifiedRecord != null) ...[
+                          if (_verifiedRecord != null && !_isNotInRoster) ...[
                             const SizedBox(height: 14),
                             Container(
                               padding: const EdgeInsets.all(14),
@@ -522,7 +614,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
 
-                    // Step 2: Account Credentials (visible when record verified)
+                    // Step 2: Account Credentials & Details
                     if (_verifiedRecord != null) ...[
                       const SizedBox(height: 20),
                       Container(
@@ -546,17 +638,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: const Icon(Icons.lock_person, size: 18, color: AppColors.primaryNavy),
                                 ),
                                 const SizedBox(width: 10),
-                                const Text(
-                                  'Step 2: Create Account Credentials',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                                Text(
+                                  _isNotInRoster ? 'Step 2: Enter Details & Credentials' : 'Step 2: Create Account Credentials',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 16),
 
+                            if (_isNotInRoster) ...[
+                              CustomTextField(
+                                controller: _firstNameController,
+                                label: 'First Name *',
+                                hint: 'e.g. Tinashe',
+                                prefixIcon: Icons.person_outline,
+                                validator: (v) => (v == null || v.trim().isEmpty) ? 'First name is required' : null,
+                              ),
+                              const SizedBox(height: 14),
+
+                              CustomTextField(
+                                controller: _lastNameController,
+                                label: 'Last Name *',
+                                hint: 'e.g. Moyo',
+                                prefixIcon: Icons.person_outline,
+                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Last name is required' : null,
+                              ),
+                              const SizedBox(height: 14),
+
+                              DropdownButtonFormField<String>(
+                                value: _selectedProgramme,
+                                decoration: InputDecoration(
+                                  labelText: 'Degree Programme',
+                                  prefixIcon: const Icon(Icons.school_outlined, color: AppColors.primaryNavy),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  filled: true,
+                                  fillColor: AppColors.surfaceElevated,
+                                ),
+                                isExpanded: true,
+                                items: AppConstants.dcsProgrammes
+                                    .map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13))))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedProgramme = val);
+                                },
+                              ),
+                              const SizedBox(height: 14),
+
+                              DropdownButtonFormField<int>(
+                                value: _selectedGradYear,
+                                decoration: InputDecoration(
+                                  labelText: 'Graduation Year',
+                                  prefixIcon: const Icon(Icons.calendar_today_outlined, color: AppColors.primaryNavy),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  filled: true,
+                                  fillColor: AppColors.surfaceElevated,
+                                ),
+                                items: List.generate(26, (i) => 2000 + i)
+                                    .reversed
+                                    .map((yr) => DropdownMenuItem(value: yr, child: Text(yr.toString())))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedGradYear = val);
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+
                             CustomTextField(
                               controller: _emailController,
-                              label: 'Personal / Work Email',
+                              label: 'Personal / Work Email *',
                               hint: 'e.g. tinashe.moyo@gmail.com',
                               prefixIcon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
@@ -566,7 +716,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                             CustomTextField(
                               controller: _passwordController,
-                              label: 'Choose Password',
+                              label: 'Choose Password *',
                               hint: 'Minimum 6 characters',
                               prefixIcon: Icons.lock_outline_rounded,
                               isPassword: true,
@@ -584,7 +734,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 20),
 
                             CustomButton(
-                              text: 'Complete & Activate Account',
+                              text: _isNotInRoster ? 'Submit Account for Review' : 'Complete & Activate Account',
                               isLoading: auth.isLoading,
                               onPressed: _handleRegister,
                             ),

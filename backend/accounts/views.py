@@ -156,13 +156,46 @@ class LookupGraduateView(APIView):
 
         roster_entry = GraduationRoster.objects.filter(registration_number__iexact=reg).first()
         if not roster_entry:
+            # Auto-alert Department Administrators that an alumnus is trying to register
+            # but is not yet in the official GraduationRoster database!
+            from communications.models import InAppNotification
+            from alumni.models import VerificationRequest
+            from django.utils import timezone
+
+            # Create or update a pending VerificationRequest
+            VerificationRequest.objects.get_or_create(
+                registration_number=reg,
+                status=VerificationRequest.Status.PENDING,
+                defaults={
+                    'full_name': f"Graduate ({reg})",
+                    'email': '',
+                    'notes': f"Registration attempt on {timezone.now().strftime('%Y-%m-%d %H:%M')}. Registration number was not found in database.",
+                }
+            )
+
+            # Create in-app notification for all admin users
+            admin_users = User.objects.filter(role=User.UserRole.ADMIN)
+            for admin in admin_users:
+                if not InAppNotification.objects.filter(user=admin, reference_id=reg, is_read=False).exists():
+                    InAppNotification.objects.create(
+                        user=admin,
+                        title=f"Registration Alert: {reg} Not in Database",
+                        message=f"An alumnus with registration number '{reg}' is attempting to register, but is not in the graduation database. Please review their record.",
+                        category='SYSTEM',
+                        reference_id=reg,
+                        action_url='/admin/alumni/verificationrequest/'
+                    )
+
             return Response(
                 {
-                    'status': 'NOT_FOUND',
-                    'message': f"Registration number '{reg}' was not found in the official MSU DCS Graduation Database. Only verified graduates of the department can register."
+                    'status': 'NOT_IN_ROSTER',
+                    'registration_number': reg,
+                    'admin_notified': True,
+                    'message': f"Registration number '{reg}' is not yet in the official roster. The Department Administrator has been automatically notified. You can still fill in your details below to submit your account for staff review."
                 },
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_200_OK
             )
+
 
         # Split full name into first and last name
         names = roster_entry.full_name.strip().split()

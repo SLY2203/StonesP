@@ -86,12 +86,6 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
         if AlumniProfile.objects.filter(registration_number__iexact=reg).exists():
             raise serializers.ValidationError("An alumnus with this registration number is already registered.")
 
-        # Strict validation against official Graduation Roster
-        from alumni.models import GraduationRoster
-        if not GraduationRoster.objects.filter(registration_number__iexact=reg).exists():
-            raise serializers.ValidationError(
-                f"Registration number '{reg}' is not found in the official MSU DCS Graduation Database. Only verified graduates can register. If you graduated recently, please contact department staff."
-            )
         return reg
 
     @transaction.atomic
@@ -110,7 +104,8 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             username = f"{base_username}{counter}"
             counter += 1
 
-        from alumni.models import GraduationRoster
+        from alumni.models import GraduationRoster, VerificationRequest
+        from communications.models import InAppNotification
 
         # Auto-verify if the registration number exists in the official Graduation Roster
         roster_entry = GraduationRoster.objects.filter(registration_number__iexact=reg_num).first()
@@ -131,18 +126,14 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             if submitted_name and roster_name:
                 try:
                     from rapidfuzz import fuzz
-                    # token_set_ratio handles omitted middle names (e.g., 'Tinashe Moyo' vs 'Tinashe Kudakwashe Moyo')
-                    # token_sort_ratio handles reordered names (e.g., 'Moyo Tinashe')
                     similarity = max(
                         fuzz.token_sort_ratio(submitted_name.lower(), roster_name.lower()),
                         fuzz.token_set_ratio(submitted_name.lower(), roster_name.lower())
                     )
                     if similarity < NAME_SIMILARITY_THRESHOLD:
-                        # Name doesn't match roster sufficiently — block auto-verification
                         roster_name_mismatch = True
                         is_auto_verified = False
                 except ImportError:
-                    # Fallback: word intersection check if rapidfuzz not installed
                     submitted_parts = set(submitted_name.lower().split())
                     roster_parts = set(roster_name.lower().split())
                     if not submitted_parts.intersection(roster_parts):
@@ -167,10 +158,39 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
             phone_number=phone
         )
 
+        # Notify administrator if user is not auto-verified (or not in roster)
+        if not is_auto_verified:
+            full_name = user.get_full_name()
+            VerificationRequest.objects.update_or_create(
+                registration_number=reg_num,
+                defaults={
+                    'user': user,
+                    'full_name': full_name,
+                    'email': user.email,
+                    'graduation_year': grad_year,
+                    'programme': programme,
+                    'phone_number': phone,
+                    'status': VerificationRequest.Status.PENDING,
+                    'notes': 'Account registered by graduate; awaiting administrator verification approval.'
+                }
+            )
+
+            admin_users = User.objects.filter(role=User.UserRole.ADMIN)
+            for admin in admin_users:
+                InAppNotification.objects.create(
+                    user=admin,
+                    title=f"New Pending Account: {full_name} ({reg_num})",
+                    message=f"Alumnus {full_name} ({reg_num}, {email}) created an account and is awaiting verification approval.",
+                    category='SYSTEM',
+                    reference_id=str(user.id),
+                    action_url='/admin/alumni/verificationrequest/'
+                )
+
         user.is_auto_verified = is_auto_verified
         user.roster_year_mismatch = roster_year_mismatch
         user.roster_name_mismatch = roster_name_mismatch
         return user
+
 
 class VerifyAlumnusSerializer(serializers.Serializer):
     is_verified = serializers.BooleanField()
