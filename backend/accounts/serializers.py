@@ -86,6 +86,12 @@ class RegisterAlumniSerializer(serializers.ModelSerializer):
         if AlumniProfile.objects.filter(registration_number__iexact=reg).exists():
             raise serializers.ValidationError("An alumnus with this registration number is already registered.")
 
+        from alumni.models import GraduationRoster
+        if not GraduationRoster.objects.filter(registration_number__iexact=reg).exists():
+            raise serializers.ValidationError(
+                f"Registration number '{reg}' is not found in the official MSU DCS Graduation Database. Only verified graduates can register. Please wait for the administrator to verify your record."
+            )
+
         return reg
 
     @transaction.atomic

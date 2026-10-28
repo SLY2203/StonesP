@@ -72,6 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _isLookingUp = false;
         _isNotInRoster = false;
         _verifiedRecord = result;
+        _lookupError = null;
         _firstNameController.text = result['first_name'] ?? '';
         _lastNameController.text = result['last_name'] ?? '';
         _selectedGradYear = result['graduation_year'] ?? 2024;
@@ -82,26 +83,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _selectedProgramme = AppConstants.dcsProgrammes[0];
         }
       });
-    } else if (result != null && result['status'] == 'NOT_IN_ROSTER') {
-      setState(() {
-        _isLookingUp = false;
-        _isNotInRoster = true;
-        _verifiedRecord = result;
-        _lookupError = null;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Department Administrator has been automatically notified about $reg.'),
-          backgroundColor: AppColors.accentGold,
-          duration: const Duration(seconds: 4),
+        const SnackBar(
+          content: Text('Graduate record confirmed! Please proceed to Step 2 to create your account.'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 4),
         ),
       );
     } else {
-      // If result is null or 404 from server, automatically alert admin and unlock registration
+      // Unverified: Keep Step 2 hidden and wait for admin verification
       setState(() {
         _isLookingUp = false;
         _isNotInRoster = true;
-        _verifiedRecord = {'status': 'NOT_IN_ROSTER', 'registration_number': reg};
+        _verifiedRecord = null; // Do NOT unlock Step 2!
         _lookupError = null;
       });
       auth.requestVerification(
@@ -110,8 +104,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Department Administrator has been automatically notified about $reg.'),
-          backgroundColor: AppColors.accentGold,
+          content: Text('Registration number $reg is not yet verified. Department Administrator has been alerted.'),
+          backgroundColor: AppColors.warning,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -256,18 +250,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_isNotInRoster) {
-      if (_firstNameController.text.trim().isEmpty || _lastNameController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your first and last name.'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-        return;
-      }
-    }
-
     if (!_formKey.currentState!.validate()) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -285,27 +267,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      if (auth.currentUser?.isVerified == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful & automatically verified against the graduation database! Please log in.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account submitted! Administrator has been alerted to review and verify your record.'),
-            backgroundColor: AppColors.primaryNavy,
-            duration: Duration(seconds: 4),
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account successfully created & verified! Please log in.'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -513,15 +482,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
 
-                          // Not in roster auto-notification card
-                          if (_verifiedRecord != null && _isNotInRoster) ...[
+                          // Awaiting admin verification card
+                          if (_isNotInRoster && _verifiedRecord == null) ...[
                             const SizedBox(height: 14),
                             Container(
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.accentGold.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.accentGold.withOpacity(0.6)),
+                                color: AppColors.warningBg.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.warning.withOpacity(0.6)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,24 +500,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primaryNavy,
+                                          color: AppColors.warning,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
-                                        child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 16),
+                                        child: const Icon(Icons.hourglass_top_rounded, color: Colors.white, size: 18),
                                       ),
                                       const SizedBox(width: 10),
                                       const Expanded(
                                         child: Text(
-                                          'Administrator Automatically Notified',
-                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                                          'Awaiting Administrator Verification',
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 10),
                                   Text(
-                                    'Registration number \'${_regNumController.text.trim().toUpperCase()}\' was not found in the DCS graduation database.\n\nAn alert has been dispatched directly to the Department Administrator for record verification. Please complete your details below so your account can be submitted for review.',
-                                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.4),
+                                    "Registration number '${_regNumController.text.trim().toUpperCase()}' is not yet verified in the DCS Graduation Database.\n\nAn alert has been dispatched to the Department Administrator to verify your record. Please wait for the administrator to review and verify your details.\n\nOnce verified, tap 'Check Verification Status' below to proceed to Step 2 and complete your registration.",
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.45),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primaryNavy,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        icon: _isLookingUp
+                                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                            : const Icon(Icons.refresh_rounded, size: 16),
+                                        label: const Text('Check Verification Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        onPressed: _isLookingUp ? null : _handleLookup,
+                                      ),
+                                      OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.primaryNavy,
+                                          side: const BorderSide(color: AppColors.primaryNavy),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        icon: const Icon(Icons.send_rounded, size: 15),
+                                        label: Text(_alertSent ? 'Details Sent to Admin' : 'Notify Admin with Details', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        onPressed: _showNotifyAdminDialog,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -556,7 +556,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
 
                           // Verified record card
-                          if (_verifiedRecord != null && !_isNotInRoster) ...[
+                          if (_verifiedRecord != null) ...[
                             const SizedBox(height: 14),
                             Container(
                               padding: const EdgeInsets.all(14),
@@ -614,7 +614,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
 
-                    // Step 2: Account Credentials & Details
+                    // Step 2: Account Credentials (visible ONLY when record is verified)
                     if (_verifiedRecord != null) ...[
                       const SizedBox(height: 20),
                       Container(
@@ -638,71 +638,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: const Icon(Icons.lock_person, size: 18, color: AppColors.primaryNavy),
                                 ),
                                 const SizedBox(width: 10),
-                                Text(
-                                  _isNotInRoster ? 'Step 2: Enter Details & Credentials' : 'Step 2: Create Account Credentials',
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
+                                const Text(
+                                  'Step 2: Create Account Credentials',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryNavy),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 16),
-
-                            if (_isNotInRoster) ...[
-                              CustomTextField(
-                                controller: _firstNameController,
-                                label: 'First Name *',
-                                hint: 'e.g. Tinashe',
-                                prefixIcon: Icons.person_outline,
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'First name is required' : null,
-                              ),
-                              const SizedBox(height: 14),
-
-                              CustomTextField(
-                                controller: _lastNameController,
-                                label: 'Last Name *',
-                                hint: 'e.g. Moyo',
-                                prefixIcon: Icons.person_outline,
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Last name is required' : null,
-                              ),
-                              const SizedBox(height: 14),
-
-                              DropdownButtonFormField<String>(
-                                value: _selectedProgramme,
-                                decoration: InputDecoration(
-                                  labelText: 'Degree Programme',
-                                  prefixIcon: const Icon(Icons.school_outlined, color: AppColors.primaryNavy),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  filled: true,
-                                  fillColor: AppColors.surfaceElevated,
-                                ),
-                                isExpanded: true,
-                                items: AppConstants.dcsProgrammes
-                                    .map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13))))
-                                    .toList(),
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _selectedProgramme = val);
-                                },
-                              ),
-                              const SizedBox(height: 14),
-
-                              DropdownButtonFormField<int>(
-                                value: _selectedGradYear,
-                                decoration: InputDecoration(
-                                  labelText: 'Graduation Year',
-                                  prefixIcon: const Icon(Icons.calendar_today_outlined, color: AppColors.primaryNavy),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  filled: true,
-                                  fillColor: AppColors.surfaceElevated,
-                                ),
-                                items: List.generate(26, (i) => 2000 + i)
-                                    .reversed
-                                    .map((yr) => DropdownMenuItem(value: yr, child: Text(yr.toString())))
-                                    .toList(),
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _selectedGradYear = val);
-                                },
-                              ),
-                              const SizedBox(height: 14),
-                            ],
 
                             CustomTextField(
                               controller: _emailController,
@@ -734,7 +676,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 20),
 
                             CustomButton(
-                              text: _isNotInRoster ? 'Submit Account for Review' : 'Complete & Activate Account',
+                              text: 'Complete & Activate Account',
                               isLoading: auth.isLoading,
                               onPressed: _handleRegister,
                             ),

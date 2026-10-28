@@ -191,7 +191,7 @@ class LookupGraduateView(APIView):
                     'status': 'NOT_IN_ROSTER',
                     'registration_number': reg,
                     'admin_notified': True,
-                    'message': f"Registration number '{reg}' is not yet in the official roster. The Department Administrator has been automatically notified. You can still fill in your details below to submit your account for staff review."
+                    'message': f"Registration number '{reg}' is not yet verified in the official DCS Graduation Database. The Department Administrator has been alerted to review your record. Please wait for administrator verification."
                 },
                 status=status.HTTP_200_OK
             )
