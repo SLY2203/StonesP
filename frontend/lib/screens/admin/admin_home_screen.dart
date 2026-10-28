@@ -14,6 +14,7 @@ import 'admin_feedback_screen.dart';
 import 'broadcast_composer_screen.dart';
 import 'reports_dashboard_screen.dart';
 import 'post_ai_job_screen.dart';
+import '../common/notifications_screen.dart';
 import '../auth/login_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -350,7 +351,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           ),
                         ),
                       ),
-                      const MsuLogo(size: 24, showBorder: true, borderRadius: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications_active_outlined, color: Colors.white, size: 22),
+                            tooltip: 'System Alerts & Notifications',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          const MsuLogo(size: 24, showBorder: true, borderRadius: 6),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -370,11 +387,28 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      // AI Job Matcher Button
+                      // Alerts & Notifications Button
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accentGold,
                           foregroundColor: AppColors.primaryNavy,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.notifications_active_rounded, size: 16),
+                        label: const Text('Alerts & Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                          );
+                        },
+                      ),
+                      // AI Job Matcher Button
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.18),
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
