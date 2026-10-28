@@ -410,7 +410,8 @@ class VerificationRequestCreateView(APIView):
             v_req.save()
 
         # Send in-app notification to all administrators
-        admin_users = User.objects.filter(role=User.UserRole.ADMIN)
+        from django.db.models import Q
+        admin_users = User.objects.filter(Q(role=User.UserRole.ADMIN) | Q(is_superuser=True) | Q(is_staff=True)).distinct()
         for admin in admin_users:
             InAppNotification.objects.create(
                 user=admin,

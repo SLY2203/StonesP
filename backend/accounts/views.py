@@ -174,7 +174,8 @@ class LookupGraduateView(APIView):
             )
 
             # Create in-app notification for all admin users
-            admin_users = User.objects.filter(role=User.UserRole.ADMIN)
+            from django.db.models import Q
+            admin_users = User.objects.filter(Q(role=User.UserRole.ADMIN) | Q(is_superuser=True) | Q(is_staff=True)).distinct()
             for admin in admin_users:
                 if not InAppNotification.objects.filter(user=admin, reference_id=reg, is_read=False).exists():
                     InAppNotification.objects.create(

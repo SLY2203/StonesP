@@ -24,8 +24,11 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     def save(self, *args, **kwargs):
-        # Admins and superusers are automatically marked as verified
-        if self.role == self.UserRole.ADMIN or self.is_superuser:
+        # Admins, staff, and superusers are automatically marked as verified and given ADMIN role
+        if self.is_superuser or self.is_staff:
+            self.role = self.UserRole.ADMIN
+            self.is_verified = True
+        elif self.role == self.UserRole.ADMIN:
             self.is_verified = True
         super().save(*args, **kwargs)
 
